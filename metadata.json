@@ -1,0 +1,8 @@
+{
+  "name": "ApexJob: Strategic Career CRM",
+  "description": "A mission-critical job application and outreach management platform designed for long-term career tracking with immutable history, advanced analytics, and AI-powered relationship intelligence.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
