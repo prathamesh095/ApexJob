@@ -45,6 +45,15 @@ export interface OutreachTemplate {
   category: EmailType;
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  type: string; // MIME type
+  size: number; // Bytes
+  data: string; // Base64 Data URI
+  uploadedAt: number;
+}
+
 export interface TrackingRecord {
   id: string;
   userId: string;
@@ -68,6 +77,7 @@ export interface TrackingRecord {
   followUpSent: boolean;
   resultAfterFollowUp?: string;
   notes?: string;
+  attachments: Attachment[];
   // Metadata
   createdAt: number;
   updatedAt: number;

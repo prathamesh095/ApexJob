@@ -135,7 +135,13 @@ class StorageService {
       const index = records.findIndex(r => r.id === record.id && r.userId === user.id);
       if (index === -1) throw new Error("NOT_FOUND: Target record inaccessible.");
       
-      const updated = { ...records[index], ...record, updatedAt: now } as TrackingRecord;
+      const updated = { 
+        ...records[index], 
+        ...record, 
+        attachments: record.attachments || records[index].attachments || [],
+        updatedAt: now 
+      } as TrackingRecord;
+      
       records[index] = updated;
       this.set(STORAGE_KEYS.RECORDS, records);
       this.log('UPDATE', updated.id, 'RECORD', `Record updated for ${updated.roleTitle} at ${updated.company}`);
@@ -156,6 +162,7 @@ class StorageService {
         replyReceived: record.replyReceived || false,
         status: record.status || ApplicationStatus.SENT,
         followUpSent: record.followUpSent || false,
+        attachments: record.attachments || [],
         createdAt: now,
         updatedAt: now,
       } as TrackingRecord;
@@ -189,6 +196,7 @@ class StorageService {
       replyReceived: false,
       status: (rec.status as ApplicationStatus) || ApplicationStatus.SENT,
       followUpSent: false,
+      attachments: [],
       createdAt: now,
       updatedAt: now,
     } as TrackingRecord));

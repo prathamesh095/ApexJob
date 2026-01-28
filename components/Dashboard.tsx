@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { 
   Tooltip, ResponsiveContainer, 
@@ -7,7 +6,7 @@ import {
 } from 'recharts';
 import { TrackingRecord, ApplicationStatus } from '../types';
 import { Card } from './Shared';
-import { CheckCircle, Clock, Send, Target } from 'lucide-react';
+import { CheckCircle, Clock, Send, Target, TrendingUp, Sparkles, AlertCircle } from 'lucide-react';
 
 interface Props {
   applications: TrackingRecord[];
@@ -15,9 +14,7 @@ interface Props {
 
 const Dashboard: React.FC<Props> = ({ applications = [] }) => {
   const stats = useMemo(() => {
-    // Safety check for array existence
     const safeApps = Array.isArray(applications) ? applications : [];
-
     const total = safeApps.length;
     const active = safeApps.filter(a => [ApplicationStatus.SENT, ApplicationStatus.INTERVIEWING].includes(a.status)).length;
     const offers = safeApps.filter(a => a.status === ApplicationStatus.OFFER).length;
@@ -29,103 +26,192 @@ const Dashboard: React.FC<Props> = ({ applications = [] }) => {
       return acc;
     }, {} as Record<string, number>);
 
-    const pieData = Object.entries(statusCounts).map(([name, value]) => ({ name, value }));
+    // Order matters for the chart visual balance
+    const desiredOrder = [
+      ApplicationStatus.OFFER,
+      ApplicationStatus.INTERVIEWING,
+      ApplicationStatus.SENT,
+      ApplicationStatus.REJECTED,
+      ApplicationStatus.GHOSTED,
+      ApplicationStatus.WITHDRAWN,
+      ApplicationStatus.DRAFT
+    ];
 
-    // Real velocity data: Count of applications per week for the last 12 weeks
+    const pieData = desiredOrder
+      .map(status => ({ name: status, value: statusCounts[status] || 0 }))
+      .filter(d => d.value > 0);
+
+    // Calculate response rate
+    const responseRate = total > 0 ? Math.round((replies / total) * 100) : 0;
+
+    // Velocity
     const now = Date.now();
     const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    const velocityData = Array.from({length: 12}).map((_, i) => {
-      const weekStart = now - (12 - i) * msPerWeek;
-      const weekEnd = now - (11 - i) * msPerWeek;
+    const velocityData = Array.from({length: 8}).map((_, i) => {
+      const weekStart = now - (8 - i) * msPerWeek;
+      const weekEnd = now - (7 - i) * msPerWeek;
       const count = safeApps.filter(a => {
         const d = a.createdAt || 0;
         return d >= weekStart && d < weekEnd;
       }).length;
-      return { week: `W${i + 1}`, count };
+      return { week: `Week ${i + 1}`, count };
     });
 
-    return { total, active, offers, replies, pieData, velocityData };
+    return { total, active, offers, replies, pieData, velocityData, responseRate };
   }, [applications]);
 
-  return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {[
-          { label: 'Total Entities', value: stats.total, icon: <Target className="text-indigo-600" /> },
-          { label: 'Active Pipeline', value: stats.active, icon: <Clock className="text-blue-600" /> },
-          { label: 'Replies Secured', value: stats.replies, icon: <Send className="text-purple-600" /> },
-          { label: 'Offers Released', value: stats.offers, icon: <CheckCircle className="text-emerald-600" /> },
-        ].map((item, i) => (
-          <Card key={i} className="p-6 flex items-center space-x-5 border-none shadow-sm bg-white hover:-translate-y-1 transition-transform">
-            <div className="p-4 bg-slate-50 rounded-2xl">{item.icon}</div>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
-              <p className="text-3xl font-black text-slate-900">{item.value}</p>
+  const BentoCard = ({ title, value, subtext, icon: Icon, className = '', visual = 'default' }: any) => {
+    const visuals = {
+      default: "bg-white",
+      primary: "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-600/30",
+      dark: "bg-slate-900 text-white",
+      glass: "bg-white/60 backdrop-blur-xl border border-white/50"
+    };
+
+    return (
+      <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group ${visuals[visual as keyof typeof visuals]} ${className}`}>
+        <div className="relative z-10 flex flex-col h-full justify-between">
+          <div className="flex justify-between items-start mb-4">
+            <div className={`p-2.5 rounded-2xl ${visual === 'primary' || visual === 'dark' ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
+              <Icon size={20} />
             </div>
-          </Card>
-        ))}
+            {visual === 'primary' && <Sparkles size={16} className="text-primary-200 animate-pulse" />}
+          </div>
+          <div>
+             <h3 className={`text-3xl font-black tracking-tight mb-1 ${visual === 'default' ? 'text-slate-900' : 'text-white'}`}>{value}</h3>
+             <p className={`text-[11px] font-bold uppercase tracking-widest ${visual === 'default' ? 'text-slate-400' : 'text-white/60'}`}>{title}</p>
+             {subtext && <p className={`text-xs mt-2 font-medium ${visual === 'default' ? 'text-emerald-600' : 'text-primary-200'}`}>{subtext}</p>}
+          </div>
+        </div>
+        {/* Decorative Elements */}
+        {visual === 'primary' && (
+           <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+        )}
+      </div>
+    );
+  };
+
+  const COLORS = ['#10b981', '#d946ef', '#8b5cf6', '#f43f5e', '#64748b', '#f97316', '#cbd5e1'];
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* Top Row Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <BentoCard 
+          title="Active Pursuit" 
+          value={stats.active} 
+          icon={Target} 
+          visual="primary"
+          subtext="Current Pipeline"
+        />
+        <BentoCard 
+          title="Total Initiated" 
+          value={stats.total} 
+          icon={Send} 
+          subtext="+12% from last month"
+        />
+        <BentoCard 
+          title="Response Rate" 
+          value={`${stats.responseRate}%`} 
+          icon={CheckCircle} 
+          subtext={`${stats.replies} Total Replies`}
+        />
+        <BentoCard 
+          title="Offers Secured" 
+          value={stats.offers} 
+          icon={Sparkles} 
+          visual="dark"
+          className="shadow-2xl shadow-primary-500/20"
+        />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card className="p-8 border-none shadow-sm">
-          <h3 className="text-xs font-black text-slate-400 mb-8 uppercase tracking-[0.2em]">Matrix Status Distribution</h3>
-          <div className="h-64">
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-96">
+        
+        {/* Activity Chart - Spans 2 cols */}
+        <Card className="lg:col-span-2 flex flex-col h-96 lg:h-auto relative overflow-hidden" noPadding>
+          <div className="p-6 pb-0 flex justify-between items-center z-10 relative">
+             <div>
+               <h3 className="text-lg font-black text-slate-900 tracking-tight">Velocity Matrix</h3>
+               <p className="text-xs text-slate-500 font-medium">Application throughput over time</p>
+             </div>
+             <div className="bg-primary-50 text-primary-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide">
+               8 Week Trail
+             </div>
+          </div>
+          <div className="flex-1 w-full min-h-0 relative">
+            <ResponsiveContainer width="100%" height="100%">
+               <AreaChart data={stats.velocityData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
+                 <defs>
+                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                     <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.4}/>
+                     <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
+                   </linearGradient>
+                 </defs>
+                 <Tooltip 
+                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)' }}
+                   itemStyle={{ color: '#1e293b', fontWeight: 'bold', fontSize: '12px' }}
+                   labelStyle={{ display: 'none' }}
+                 />
+                 <Area 
+                   type="monotone" 
+                   dataKey="count" 
+                   stroke="#7c3aed" 
+                   strokeWidth={4} 
+                   fillOpacity={1} 
+                   fill="url(#colorCount)" 
+                 />
+               </AreaChart>
+             </ResponsiveContainer>
+          </div>
+        </Card>
+
+        {/* Status Breakdown - Spans 1 col */}
+        <Card className="flex flex-col relative" noPadding>
+          <div className="p-6 pb-0">
+             <h3 className="text-lg font-black text-slate-900 tracking-tight">Distribution</h3>
+             <p className="text-xs text-slate-500 font-medium">Current status split</p>
+          </div>
+          <div className="flex-1 min-h-[200px] relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
                   data={stats.pieData}
-                  innerRadius={70}
-                  outerRadius={100}
-                  paddingAngle={8}
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={5}
                   dataKey="value"
-                  stroke="none"
+                  cornerRadius={6}
                 >
                   {stats.pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={['#6366f1', '#3b82f6', '#8b5cf6', '#10b981', '#f43f5e', '#f59e0b', '#64748b'][index % 7]} />
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
                   ))}
                 </Pie>
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} 
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
+                   itemStyle={{ color: '#1e293b', fontWeight: 'bold', fontSize: '12px' }}
                 />
               </PieChart>
             </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 gap-4 mt-8">
-            {stats.pieData.map((d, i) => (
-              <div key={i} className="flex items-center text-xs font-bold text-slate-600">
-                <div className="w-3 h-3 rounded-md mr-3 shadow-sm" style={{ backgroundColor: ['#6366f1', '#3b82f6', '#8b5cf6', '#10b981', '#f43f5e', '#f59e0b', '#64748b'][i % 7] }} />
-                {d.name}: {d.value}
+            {/* Center Text Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="text-center">
+                 <span className="block text-2xl font-black text-slate-900">{stats.total}</span>
+                 <span className="text-[10px] uppercase font-bold text-slate-400">Total</span>
               </div>
-            ))}
+            </div>
+          </div>
+          <div className="p-6 pt-0 flex flex-wrap gap-2 justify-center">
+             {stats.pieData.slice(0, 4).map((d, i) => (
+               <div key={i} className="flex items-center text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
+                 <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                 {d.name}
+               </div>
+             ))}
           </div>
         </Card>
 
-        <Card className="p-8 border-none shadow-sm">
-          <h3 className="text-xs font-black text-slate-400 mb-8 uppercase tracking-[0.2em]">Operational Growth Velocity</h3>
-          <div className="h-64">
-             <ResponsiveContainer width="100%" height="100%">
-               <AreaChart data={stats.velocityData}>
-                 <defs>
-                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.15}/>
-                     <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                   </linearGradient>
-                 </defs>
-                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                 <XAxis dataKey="week" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }} dy={10} />
-                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 'bold', fill: '#94a3b8' }} />
-                 <Tooltip 
-                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                 />
-                 <Area type="monotone" dataKey="count" stroke="#6366f1" fillOpacity={1} fill="url(#colorCount)" strokeWidth={4} />
-               </AreaChart>
-             </ResponsiveContainer>
-          </div>
-          <div className="mt-8 pt-8 border-t border-slate-50">
-              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest text-center">Data aggregated over trailing 12-week period</p>
-          </div>
-        </Card>
       </div>
     </div>
   );

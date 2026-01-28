@@ -1,5 +1,4 @@
-
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 
 // Standard initialization as per guidelines
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -7,6 +6,10 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 export interface ResearchResult {
   content: string;
   sources: { title: string; uri: string }[];
+}
+
+export interface InterviewPrep {
+  questions: { question: string; idealAnswerKey: string }[];
 }
 
 export async function researchCompany(company: string): Promise<ResearchResult> {
@@ -25,13 +28,12 @@ export async function researchCompany(company: string): Promise<ResearchResult> 
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "text/plain"
+        // responseMimeType is not recommended with search grounding
       }
     });
 
     const content = response.text || "No intelligence gathered.";
     
-    // Extract grounding chunks properly
     const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
       ?.map((chunk: any) => chunk.web)
       .filter((web: any) => web && web.uri && web.title) || [];
@@ -69,21 +71,48 @@ export async function generateOutreachDraft(params: {
   }
 }
 
-export async function summarizeApplicationHistory(logs: string[]): Promise<string> {
-  const prompt = `Summarize the following career application events into a concise narrative. 
-    Focus on key milestones and current status.
+export async function generateInterviewQuestions(role: string, company: string): Promise<InterviewPrep> {
+  const prompt = `Generate 3 challenging, role-specific interview questions for a ${role} position at ${company}.
+    Also provide a comprehensive "Ideal Answer Key" paragraph for each that highlights what specific keywords or concepts the interviewer is looking for.
+    Ensure 'idealAnswerKey' is never empty.
     
-    Events:
-    ${logs.join('\n')}`;
+    Return pure JSON format:
+    {
+      "questions": [
+        { "question": "...", "idealAnswerKey": "..." }
+      ]
+    }`;
 
   try {
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+           type: Type.OBJECT,
+           properties: {
+             questions: {
+               type: Type.ARRAY,
+               items: {
+                 type: Type.OBJECT,
+                 properties: {
+                   question: { type: Type.STRING },
+                   idealAnswerKey: { type: Type.STRING }
+                 }
+               }
+             }
+           }
+        }
+      }
     });
-    return response.text || "No summary available.";
+    
+    if (response.text) {
+        return JSON.parse(response.text) as InterviewPrep;
+    }
+    return { questions: [] };
   } catch (error) {
-    console.error("AI Analysis error:", error);
-    return "Analysis failed.";
+    console.error("AI Interview error:", error);
+    return { questions: [] };
   }
 }

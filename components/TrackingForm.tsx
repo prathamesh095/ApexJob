@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { TrackingRecord, ApplicationStatus, EmailType, Contact } from '../types';
-import { Button, Input, Label, Select, Checkbox, Textarea } from './Shared';
+import { TrackingRecord, ApplicationStatus, EmailType, Contact, Attachment } from '../types';
+import { Button, Input, Label, Select, Checkbox, Textarea, FileUpload } from './Shared';
 import { storage } from '../services/storage';
+import { X, FileText, Paperclip } from 'lucide-react';
 
 interface Props {
   initialData: Partial<TrackingRecord>;
@@ -31,6 +32,7 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
     notes: '',
     responseSummary: '',
     resultAfterFollowUp: '',
+    attachments: [],
     ...initialData
   });
 
@@ -117,6 +119,20 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
     } else {
       setFormData(prev => ({ ...prev, contactId: undefined }));
     }
+  };
+
+  const handleUpload = (file: Attachment) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: [...(prev.attachments || []), file]
+    }));
+  };
+
+  const removeAttachment = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: (prev.attachments || []).filter(a => a.id !== id)
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -277,6 +293,50 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
               value={formData.personalizationNotes} 
               onChange={e => handleChange('personalizationNotes', e.target.value)} 
             />
+          </div>
+        </div>
+
+        {/* ATTACHMENTS BLOCK */}
+        <div className="space-y-5">
+           <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest">Secure Assets</h4>
+            <span className="text-[10px] text-slate-400 font-bold uppercase">Resumes / Cover Letters</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <FileUpload onUpload={handleUpload} />
+            
+            <div className="space-y-2">
+               {formData.attachments && formData.attachments.length > 0 ? (
+                 <div className="space-y-2">
+                   {formData.attachments.map(file => (
+                     <div key={file.id} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl shadow-sm group">
+                        <div className="flex items-center overflow-hidden">
+                           <div className="bg-indigo-50 text-indigo-600 p-2 rounded-lg mr-3">
+                             <FileText size={16} />
+                           </div>
+                           <div className="truncate">
+                             <p className="text-xs font-bold text-slate-700 truncate max-w-[150px]">{file.name}</p>
+                             <p className="text-[10px] text-slate-400">{(file.size / 1024).toFixed(1)} KB</p>
+                           </div>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => removeAttachment(file.id)}
+                          className="text-slate-300 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
+                        >
+                          <X size={14} />
+                        </button>
+                     </div>
+                   ))}
+                 </div>
+               ) : (
+                 <div className="h-full flex flex-col items-center justify-center text-center p-6 bg-slate-50 border border-slate-100 border-dashed rounded-xl">
+                    <Paperclip size={24} className="text-slate-300 mb-2" />
+                    <p className="text-xs text-slate-400 font-medium">No assets attached to this record.</p>
+                 </div>
+               )}
+            </div>
           </div>
         </div>
 
