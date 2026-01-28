@@ -3,7 +3,8 @@ import {
   Plus, Search, Trash2, Zap, Briefcase, LogOut, LayoutDashboard,
   Users, FileText, Copy, ChevronRight, Eye, Settings, PlusCircle,
   UserPlus, History, Upload, LayoutList, LayoutGrid, CheckCircle,
-  AlertTriangle, Filter, X, Target, Sparkles, Calendar, Bell, BrainCircuit
+  AlertTriangle, Filter, X, Target, Sparkles, Calendar, Bell, BrainCircuit,
+  Clock, ArrowRight, ChevronLeft
 } from 'lucide-react';
 import { storage } from './services/storage';
 import { auth } from './services/auth';
@@ -33,13 +34,23 @@ const App: React.FC = () => {
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
   const [showFilters, setShowFilters] = useState(false);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 12;
+
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  
+  // Import State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
+  const [importMode, setImportMode] = useState<'RECORDS' | 'CONTACTS'>('RECORDS');
+  
+  // Notification State
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   
   // AI Prep Modal
   const [isPrepModalOpen, setIsPrepModalOpen] = useState(false);
@@ -108,6 +119,38 @@ const App: React.FC = () => {
       refreshData();
     }
   }, [refreshData, user]);
+
+  // Reset pagination when filters or tab change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, filterStatuses, dateRange]);
+
+  // --- Reminders Logic ---
+  const reminders = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    return records.filter(r => {
+      // Logic: Status allows follow-up AND date is passed/today AND not yet sent
+      const isActive = [ApplicationStatus.SENT, ApplicationStatus.INTERVIEWING].includes(r.status);
+      const isDue = r.nextFollowUpDate && r.nextFollowUpDate <= today && !r.followUpSent;
+      return isActive && isDue;
+    }).sort((a, b) => (a.nextFollowUpDate || '').localeCompare(b.nextFollowUpDate || ''));
+  }, [records]);
+
+  const handleMarkFollowUpSent = (record: TrackingRecord) => {
+    try {
+      storage.saveRecord({ 
+        ...record, 
+        followUpSent: true,
+        // Optionally append a note
+        notes: (record.notes || '') + `\n[System] Follow-up marked sent on ${new Date().toLocaleDateString()}`
+      });
+      refreshData();
+      showToast("Follow-up status updated.");
+    } catch (err: any) {
+      handleOperationError(err);
+    }
+  };
+  // -----------------------
 
   const handleSaveRecord = (data: Partial<TrackingRecord>) => {
     try {
@@ -236,25 +279,48 @@ const App: React.FC = () => {
     if (!importText.trim()) return;
     try {
       const lines = importText.split('\n').filter(l => l.trim().length > 0);
-      const newRecords: Partial<TrackingRecord>[] = [];
-      lines.forEach(line => {
-        const parts = line.split(',').map(p => p.trim());
-        if (parts.length >= 2) {
-          newRecords.push({
-            company: parts[0], roleTitle: parts[1], name: parts[2] || 'Imported Contact',
-            emailAddress: parts[3] || '', status: (parts[4] as ApplicationStatus) || ApplicationStatus.SENT
-          });
+      
+      if (importMode === 'RECORDS') {
+        const newRecords: Partial<TrackingRecord>[] = [];
+        lines.forEach(line => {
+          const parts = line.split(',').map(p => p.trim());
+          if (parts.length >= 2) {
+            newRecords.push({
+              company: parts[0], roleTitle: parts[1], name: parts[2] || 'Imported Contact',
+              emailAddress: parts[3] || '', status: (parts[4] as ApplicationStatus) || ApplicationStatus.SENT
+            });
+          }
+        });
+        if (newRecords.length > 0) {
+          storage.saveRecordsBatch(newRecords);
+          showToast(`Imported ${newRecords.length} records.`);
+        } else {
+          showToast("No valid records found.", 'error');
         }
-      });
-      if (newRecords.length > 0) {
-        storage.saveRecordsBatch(newRecords);
-        refreshData();
-        setIsImportModalOpen(false);
-        setImportText('');
-        showToast(`Imported ${newRecords.length} records.`);
       } else {
-        showToast("No valid records found.", 'error');
+        // CONTACTS Import
+        const newContacts: Partial<Contact>[] = [];
+        lines.forEach(line => {
+           const parts = line.split(',').map(p => p.trim());
+           if (parts.length >= 2) {
+             newContacts.push({
+               name: parts[0], email: parts[1], company: parts[2] || 'Unknown',
+               linkedInOrSource: parts[3] || '', notes: parts[4] || 'Imported via CSV'
+             });
+           }
+        });
+        if (newContacts.length > 0) {
+          storage.saveContactsBatch(newContacts);
+          showToast(`Imported ${newContacts.length} contacts.`);
+        } else {
+           showToast("No valid contacts found.", 'error');
+        }
       }
+
+      refreshData();
+      setIsImportModalOpen(false);
+      setImportText('');
+      
     } catch (err: any) {
       handleOperationError(err);
     }
@@ -264,6 +330,7 @@ const App: React.FC = () => {
     setFilterStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
   };
 
+  // Filtered Logic
   const filteredRecords = useMemo(() => {
     let result = records;
     if (searchQuery.trim()) {
@@ -289,11 +356,55 @@ const App: React.FC = () => {
     );
   }, [contacts, searchQuery]);
 
+  // Pagination Logic
+  const paginatedRecords = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredRecords, currentPage]);
+
+  const paginatedContacts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredContacts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredContacts, currentPage]);
+
+  const totalRecordPages = Math.ceil(filteredRecords.length / ITEMS_PER_PAGE);
+  const totalContactPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE);
+
+  const PaginationControls = ({ currentPage, totalPages, totalItems, label }: { currentPage: number, totalPages: number, totalItems: number, label: string }) => {
+    if (totalItems === 0) return null;
+    return (
+      <div className="flex items-center justify-between mt-6 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+        <span className="text-xs font-bold text-slate-400 pl-2">
+          Showing <span className="text-slate-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="text-slate-900">{Math.min(currentPage * ITEMS_PER_PAGE, totalItems)}</span> of {totalItems} {label}
+        </span>
+        <div className="flex items-center gap-2">
+          <Button 
+            size="xs" 
+            variant="secondary" 
+            disabled={currentPage === 1} 
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          >
+            <ChevronLeft size={14} className="mr-1" /> Prev
+          </Button>
+          <div className="text-xs font-bold text-slate-900 px-2">Page {currentPage} of {totalPages}</div>
+          <Button 
+            size="xs" 
+            variant="secondary" 
+            disabled={currentPage === totalPages} 
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+          >
+            Next <ChevronRight size={14} className="ml-1" />
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   if (!user) return <LoginForm onLogin={() => setUser(auth.getCurrentUser())} />;
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard applications={filteredRecords} />;
+      case 'dashboard': return <Dashboard applications={records} />; // Pass all records for stats
       case 'applications':
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -307,19 +418,19 @@ const App: React.FC = () => {
                     <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={18} /></button>
                     <button onClick={() => setViewMode('table')} className={`p-2 rounded-full transition-all ${viewMode === 'table' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={18} /></button>
                  </div>
-                 <Button variant="secondary" onClick={() => setIsImportModalOpen(true)} className="hidden md:flex"><Upload size={16} className="mr-2" /> Import</Button>
+                 <Button variant="secondary" onClick={() => { setImportMode('RECORDS'); setIsImportModalOpen(true); }} className="hidden md:flex"><Upload size={16} className="mr-2" /> Import</Button>
                  <Button onClick={() => { setEditingRecord({}); setIsModalOpen(true); }} variant="gradient"><PlusCircle size={18} className="mr-2" /> New Application</Button>
               </div>
             </div>
             {viewMode === 'grid' ? (
               <div className="grid grid-cols-1 gap-4">
-                {filteredRecords.length === 0 ? (
+                {paginatedRecords.length === 0 ? (
                    <div className="py-24 text-center bg-white/50 rounded-3xl border border-dashed border-slate-300">
                      <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm"><Briefcase size={24} className="text-slate-300" /></div>
                      <h3 className="text-base font-bold text-slate-900">No Records Found</h3>
                      <p className="text-slate-500 text-xs mt-1">Initialize a new opportunity to get started.</p>
                    </div>
-                ) : filteredRecords.map(rec => (
+                ) : paginatedRecords.map(rec => (
                   <Card key={rec.id} className="p-0 group overflow-hidden border-slate-200/60" hoverEffect>
                     <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
                       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${rec.status === ApplicationStatus.OFFER ? 'bg-emerald-500' : rec.status === ApplicationStatus.REJECTED ? 'bg-rose-500' : 'bg-primary-500'}`}></div>
@@ -356,7 +467,7 @@ const App: React.FC = () => {
                      </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-50">
-                     {filteredRecords.map(rec => (
+                     {paginatedRecords.map(rec => (
                        <tr key={rec.id} className="hover:bg-primary-50/30 transition-colors group cursor-pointer" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }}>
                          <td className="px-6 py-4 font-bold text-slate-900">{rec.roleTitle}</td>
                          <td className="px-6 py-4 text-slate-600">{rec.company}</td>
@@ -375,6 +486,13 @@ const App: React.FC = () => {
                  </table>
               </Card>
             )}
+            
+            <PaginationControls 
+              currentPage={currentPage} 
+              totalPages={totalRecordPages} 
+              totalItems={filteredRecords.length} 
+              label="Records" 
+            />
           </div>
         );
       case 'contacts':
@@ -382,10 +500,13 @@ const App: React.FC = () => {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center">
               <div><h2 className="text-3xl font-black text-slate-900 tracking-tight">Network</h2><p className="text-slate-500 text-sm font-medium">Key relationships</p></div>
-              <Button onClick={() => { setEditingContact({}); setIsContactModalOpen(true); }} variant="gradient"><UserPlus size={18} className="mr-2" /> New Contact</Button>
+              <div className="flex gap-2">
+                 <Button variant="secondary" onClick={() => { setImportMode('CONTACTS'); setIsImportModalOpen(true); }}><Upload size={16} className="mr-2" /> Import</Button>
+                 <Button onClick={() => { setEditingContact({}); setIsContactModalOpen(true); }} variant="gradient"><UserPlus size={18} className="mr-2" /> New Contact</Button>
+              </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredContacts.map(contact => (
+              {paginatedContacts.map(contact => (
                 <Card key={contact.id} className="p-6 group relative border-slate-200/60" hoverEffect>
                    <div className="flex items-start justify-between mb-4">
                       <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-600 font-black text-lg group-hover:bg-primary-600 group-hover:text-white transition-all shadow-inner">{contact.name[0]}</div>
@@ -403,6 +524,12 @@ const App: React.FC = () => {
                 </Card>
               ))}
             </div>
+            <PaginationControls 
+              currentPage={currentPage} 
+              totalPages={totalContactPages} 
+              totalItems={filteredContacts.length} 
+              label="Contacts" 
+            />
           </div>
         );
       case 'templates':
@@ -460,7 +587,10 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#f8fafc] mesh-bg">
+    <div className="min-h-screen flex bg-[#f8fafc]">
+      {/* PERFORMANCE FIX: Fixed Background Layer */}
+      <div className="fixed inset-0 z-[-1] mesh-bg pointer-events-none" />
+
       {notification && (
         <div className={`fixed top-6 right-6 z-[100] px-5 py-3 rounded-full shadow-2xl font-bold text-sm animate-in fade-in slide-in-from-right-10 flex items-center gap-3 border backdrop-blur-md ${notification.type === 'success' ? 'bg-emerald-500/90 text-white border-emerald-400' : 'bg-rose-500/90 text-white border-rose-400'}`}>
           <div className="bg-white/20 p-1 rounded-full">{notification.type === 'success' ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}</div>{notification.message}
@@ -499,7 +629,8 @@ const App: React.FC = () => {
 
       <main className="flex-1 ml-20 lg:ml-72 p-6 lg:p-10 min-w-0">
         <header className="mb-10 sticky top-4 z-30">
-          <div className="glass-panel p-3 rounded-full shadow-sm flex justify-between items-center">
+          {/* PERFORMANCE FIX: Completely removed glassmorphism (backdrop-blur) from sticky header */}
+          <div className="bg-white/95 p-3 rounded-full shadow-sm border border-slate-200 flex justify-between items-center">
              <div className="flex items-center gap-4 pl-4">
                 <div className="hidden md:flex flex-col">
                    <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Command Center</h2>
@@ -515,6 +646,18 @@ const App: React.FC = () => {
                 <Filter size={16} className="mr-2" /> Filters
                 {(filterStatuses.length > 0 || dateRange.start) && <Badge className="ml-2 bg-white text-primary-600">!</Badge>}
               </Button>
+              
+              {/* Notification Bell */}
+              <button 
+                onClick={() => setIsNotificationOpen(true)}
+                className={`relative p-2.5 rounded-full transition-all duration-300 ${isNotificationOpen ? 'bg-rose-50 text-rose-500' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
+              >
+                <Bell size={18} />
+                {reminders.length > 0 && (
+                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 border border-white rounded-full animate-pulse-slow"></span>
+                )}
+              </button>
+
               <div className="w-9 h-9 rounded-full bg-gradient-to-r from-primary-500 to-accent-500 text-white flex items-center justify-center font-black text-xs border border-white shadow-md">{user.name[0]}</div>
              </div>
           </div>
@@ -546,9 +689,11 @@ const App: React.FC = () => {
         {renderContent()}
 
         {/* Modals */}
-        <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title="Data Ingestion" size="lg">
+        <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title={importMode === 'RECORDS' ? "Data Ingestion (Pipeline)" : "Data Ingestion (Contacts)"} size="lg">
            <div className="space-y-4">
-              <div className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono">Format: Company, Role, Name, Email, Status</div>
+              <div className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono">
+                {importMode === 'RECORDS' ? 'Format: Company, Role, Name, Email, Status' : 'Format: Name, Email, Company, LinkedIn, Notes'}
+              </div>
               <Textarea rows={8} value={importText} onChange={e => setImportText(e.target.value)} placeholder="Paste CSV data..." />
               <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setIsImportModalOpen(false)}>Cancel</Button><Button onClick={handleImport}>Process</Button></div>
            </div>
@@ -573,6 +718,60 @@ const App: React.FC = () => {
 
         <Modal isOpen={isContactModalOpen} onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }} title="Contact Node">
           <ContactForm initialData={editingContact || {}} onSave={handleSaveContact} onCancel={() => { setIsContactModalOpen(false); setEditingContact(null); }} />
+        </Modal>
+
+        <Modal isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} title="Action Required">
+            <div className="space-y-4">
+              {reminders.length === 0 ? (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <CheckCircle size={24} />
+                  </div>
+                  <h3 className="text-sm font-bold text-slate-900">All Clear</h3>
+                  <p className="text-xs text-slate-500 mt-1">No pending follow-ups required.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wide px-1">
+                    <span>Due Reminders</span>
+                    <span>{reminders.length} Pending</span>
+                  </div>
+                  {reminders.map(rec => (
+                    <div key={rec.id} className="bg-white p-4 rounded-xl border border-rose-100 shadow-sm flex items-center justify-between group hover:border-rose-300 transition-colors">
+                      <div className="flex items-start gap-3">
+                         <div className="bg-rose-50 text-rose-500 p-2 rounded-lg mt-1">
+                           <Clock size={16} />
+                         </div>
+                         <div>
+                            <h4 className="font-bold text-slate-900">{rec.roleTitle}</h4>
+                            <p className="text-xs font-bold text-slate-500">{rec.company}</p>
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-rose-500 font-bold uppercase tracking-wide">
+                              <span>Due: {new Date(rec.nextFollowUpDate!).toLocaleDateString()}</span>
+                            </div>
+                         </div>
+                      </div>
+                      <div className="flex flex-col gap-2">
+                        <Button 
+                          size="xs" 
+                          variant="secondary" 
+                          onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); setIsNotificationOpen(false); }}
+                        >
+                          View <ArrowRight size={10} className="ml-1" />
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          onClick={() => handleMarkFollowUpSent(rec)}
+                          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                        >
+                          Mark Sent
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
         </Modal>
 
         <Modal isOpen={isPrepModalOpen} onClose={() => setIsPrepModalOpen(false)} title="AI Interview Coach" size="lg">

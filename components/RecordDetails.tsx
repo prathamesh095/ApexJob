@@ -78,26 +78,22 @@ export const RecordDetails: React.FC<Props> = ({ record, onEdit, onDelete, onPre
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-3 relative z-10 w-full xl:w-auto">
-           {/* AI Actions Group */}
-           <div className="flex gap-2 flex-1 sm:flex-initial">
-             <Button onClick={() => onPrep(record)} variant="accent" className="flex-1 sm:flex-none shadow-accent-500/20 whitespace-nowrap">
+        <div className="flex flex-wrap gap-2 relative z-10 w-full xl:w-auto items-center">
+             <Button onClick={() => onPrep(record)} variant="accent" className="shadow-accent-500/20 whitespace-nowrap">
                <BrainCircuit size={16} className="mr-2" /> Interview Prep
              </Button>
-             <Button onClick={handleResearch} variant="gradient" isLoading={isResearching} className="flex-1 sm:flex-none whitespace-nowrap">
+             <Button onClick={handleResearch} variant="gradient" isLoading={isResearching} className="whitespace-nowrap">
                <Sparkles size={16} className="mr-2" /> Strategic Scan
              </Button>
-           </div>
-           
-           {/* Management Actions Group */}
-           <div className="flex gap-2 flex-1 sm:flex-initial border-l border-slate-100 pl-0 sm:pl-3 ml-0 sm:ml-1">
-             <Button onClick={() => onEdit(record)} variant="secondary" className="flex-1 sm:flex-none shadow-sm">
+             
+             <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
+             
+             <Button onClick={() => onEdit(record)} variant="secondary" className="shadow-sm">
                <Edit3 size={16} className="mr-2" /> Edit
              </Button>
-             <Button onClick={() => onDelete(record.id)} variant="danger" className="flex-initial shadow-lg shadow-rose-200 px-3">
+             <Button onClick={() => onDelete(record.id)} variant="danger" className="shadow-lg shadow-rose-200 px-3">
                <Trash2 size={16} />
              </Button>
-           </div>
         </div>
       </div>
 

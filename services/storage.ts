@@ -263,6 +263,31 @@ class StorageService {
     }
   }
 
+  // Batch Import for Contacts
+  saveContactsBatch(contactsToImport: Partial<Contact>[]): void {
+    const user = auth.getCurrentUser();
+    if (!user) throw new Error("UNAUTHORIZED: Session invalid or expired.");
+
+    const existingContacts = this.get<Contact>(STORAGE_KEYS.CONTACTS);
+    const now = Date.now();
+
+    const newContacts = contactsToImport.map(c => ({
+      ...c,
+      id: generateId(),
+      userId: user.id,
+      name: c.name || 'Imported Contact',
+      email: c.email || '',
+      company: c.company || 'Unknown',
+      linkedInOrSource: c.linkedInOrSource || '',
+      notes: c.notes || 'Imported via CSV',
+      createdAt: now,
+      updatedAt: now
+    } as Contact));
+
+    this.set(STORAGE_KEYS.CONTACTS, [...newContacts, ...existingContacts]);
+    this.log('BATCH_IMPORT', 'CSV', 'CONTACT', `Batch imported ${newContacts.length} contacts.`);
+  }
+
   deleteContact(id: string): void {
     const user = auth.getCurrentUser();
     if (!user) throw new Error("UNAUTHORIZED: Authentication required for deletion.");

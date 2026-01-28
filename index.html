@@ -59,7 +59,12 @@
       }
     </script>
     <style>
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #f8fafc;
+            /* Hardware acceleration hint */
+            transform: translateZ(0);
+        }
         
         /* Global UI Polish */
         ::selection { background-color: #7c3aed; color: white; }
