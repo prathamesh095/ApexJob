@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 
 // Standard initialization as per guidelines
@@ -108,7 +109,14 @@ export async function generateInterviewQuestions(role: string, company: string):
     });
     
     if (response.text) {
-        return JSON.parse(response.text) as InterviewPrep;
+        let jsonStr = response.text;
+        // Clean markdown code blocks if present
+        if (jsonStr.startsWith('```json')) {
+            jsonStr = jsonStr.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        } else if (jsonStr.startsWith('```')) {
+            jsonStr = jsonStr.replace(/^```\s*/, '').replace(/\s*```$/, '');
+        }
+        return JSON.parse(jsonStr) as InterviewPrep;
     }
     return { questions: [] };
   } catch (error) {

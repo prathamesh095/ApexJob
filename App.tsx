@@ -369,7 +369,15 @@ const App: React.FC = () => {
 
   // ---
 
-  const handlePrep = async (rec: TrackingRecord) => { setIsPrepModalOpen(true); setIsPrepping(true); const data = await generateInterviewQuestions(rec.roleTitle, rec.company); setPrepData(data); setIsPrepping(false); };
+  const handlePrep = async (rec: TrackingRecord) => { 
+      setRevealedAnswers([]); 
+      setPrepData(null);
+      setIsPrepModalOpen(true); 
+      setIsPrepping(true); 
+      const data = await generateInterviewQuestions(rec.roleTitle, rec.company); 
+      setPrepData(data); 
+      setIsPrepping(false); 
+  };
 
   const filteredRecords = useMemo(() => {
     let result = records;
@@ -891,19 +899,29 @@ const App: React.FC = () => {
          ) : prepData ? (
             <div className="space-y-6">
                {prepData.questions.map((q, i) => (
-                  <div key={i} className="bg-surface border border-border rounded-xl p-5 shadow-sm">
-                     <div className="flex gap-4">
-                        <div className="w-6 h-6 rounded bg-primary-900/50 text-primary-400 flex items-center justify-center text-xs font-bold border border-primary-500/20 shrink-0">{i+1}</div>
+                  <div key={i} className="bg-surface border border-border rounded-xl p-5 shadow-sm transition-all duration-300">
+                     <div className="flex items-start gap-4">
+                        <div className="w-6 h-6 rounded bg-primary-900/50 text-primary-400 flex items-center justify-center text-xs font-bold border border-primary-500/20 shrink-0 mt-0.5">{i+1}</div>
                         <h3 className="text-sm font-bold text-text-primary leading-relaxed">{q.question}</h3>
                      </div>
                      {revealedAnswers.includes(i) ? (
                         <div className="mt-4 p-4 bg-emerald-900/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-200 leading-relaxed animate-fade-in">
-                           <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-2">Target Response Key</p>
-                           {q.idealAnswerKey}
+                           <div className="flex items-center gap-2 mb-2">
+                               <CheckCircle size={14} className="text-emerald-500" />
+                               <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Target Response Key</p>
+                           </div>
+                           <p className="text-emerald-100/90 leading-relaxed">
+                               {q.idealAnswerKey || "Strategy key not generated."}
+                           </p>
                         </div>
                      ) : (
-                        <div onClick={() => setRevealedAnswers(p => [...p, i])} className="mt-4 p-4 bg-surface-highlight border border-border border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-surface-highlight/80 transition-colors group">
-                           <span className="text-xs text-text-muted group-hover:text-primary-400 font-medium flex items-center gap-2"><Eye size={14} /> Reveal Strategy</span>
+                        <div 
+                           onClick={() => setRevealedAnswers(p => [...p, i])} 
+                           className="mt-4 p-4 bg-surface-highlight border border-border border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-surface-highlight/80 hover:border-primary-500/30 transition-all group"
+                        >
+                           <span className="text-xs text-text-muted group-hover:text-primary-400 font-medium flex items-center gap-2 transition-colors">
+                               <Eye size={14} /> Reveal Strategy
+                           </span>
                         </div>
                      )}
                   </div>
