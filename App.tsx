@@ -4,7 +4,7 @@ import {
   Users, FileText, Copy, ChevronRight, Eye, Settings, PlusCircle,
   UserPlus, History, Upload, LayoutList, LayoutGrid, CheckCircle,
   AlertTriangle, Filter, X, Target, Sparkles, Calendar, Bell, BrainCircuit,
-  Clock, ArrowRight, ChevronLeft
+  Clock, ArrowRight, ChevronLeft, Menu
 } from 'lucide-react';
 import { storage } from './services/storage';
 import { auth } from './services/auth';
@@ -373,7 +373,7 @@ const App: React.FC = () => {
   const PaginationControls = ({ currentPage, totalPages, totalItems, label }: { currentPage: number, totalPages: number, totalItems: number, label: string }) => {
     if (totalItems === 0) return null;
     return (
-      <div className="flex items-center justify-between mt-6 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+      <div className="flex items-center justify-between mt-6 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex-wrap gap-2">
         <span className="text-xs font-bold text-slate-400 pl-2">
           Showing <span className="text-slate-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="text-slate-900">{Math.min(currentPage * ITEMS_PER_PAGE, totalItems)}</span> of {totalItems} {label}
         </span>
@@ -402,24 +402,32 @@ const App: React.FC = () => {
 
   if (!user) return <LoginForm onLogin={() => setUser(auth.getCurrentUser())} />;
 
+  const navItems = [
+    { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={20} /> },
+    { id: 'applications', label: 'Pipeline', icon: <Briefcase size={20} /> },
+    { id: 'contacts', label: 'Network', icon: <Users size={20} /> },
+    { id: 'templates', label: 'Templates', icon: <FileText size={20} /> },
+    { id: 'audit', label: 'Logs', icon: <History size={20} /> },
+  ];
+
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard': return <Dashboard applications={records} />; // Pass all records for stats
+      case 'dashboard': return <Dashboard applications={records} />;
       case 'applications':
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
               <div>
-                 <h2 className="text-3xl font-black text-slate-900 tracking-tight">Pipeline</h2>
+                 <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Pipeline</h2>
                  <p className="text-slate-500 text-sm font-medium">Manage your active applications</p>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-2 md:gap-3">
                  <div className="bg-white rounded-full p-1 border border-slate-200 shadow-sm flex items-center">
                     <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={18} /></button>
                     <button onClick={() => setViewMode('table')} className={`p-2 rounded-full transition-all ${viewMode === 'table' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={18} /></button>
                  </div>
-                 <Button variant="secondary" onClick={() => { setImportMode('RECORDS'); setIsImportModalOpen(true); }} className="hidden md:flex"><Upload size={16} className="mr-2" /> Import</Button>
-                 <Button onClick={() => { setEditingRecord({}); setIsModalOpen(true); }} variant="gradient"><PlusCircle size={18} className="mr-2" /> New Application</Button>
+                 <Button variant="secondary" onClick={() => { setImportMode('RECORDS'); setIsImportModalOpen(true); }} className="hidden sm:flex"><Upload size={16} className="mr-2" /> Import</Button>
+                 <Button onClick={() => { setEditingRecord({}); setIsModalOpen(true); }} variant="gradient" className="flex-1 md:flex-none"><PlusCircle size={18} className="mr-2" /> <span className="hidden sm:inline">New Application</span><span className="sm:hidden">New</span></Button>
               </div>
             </div>
             {viewMode === 'grid' ? (
@@ -432,24 +440,24 @@ const App: React.FC = () => {
                    </div>
                 ) : paginatedRecords.map(rec => (
                   <Card key={rec.id} className="p-0 group overflow-hidden border-slate-200/60" hoverEffect>
-                    <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-6 relative">
+                    <div className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 relative">
                       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${rec.status === ApplicationStatus.OFFER ? 'bg-emerald-500' : rec.status === ApplicationStatus.REJECTED ? 'bg-rose-500' : 'bg-primary-500'}`}></div>
-                      <div className="flex-1 pl-4 cursor-pointer" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }}>
-                        <div className="flex items-center gap-3 mb-1.5">
-                          <h3 className="font-bold text-lg text-slate-900 group-hover:text-primary-600 transition-colors">{rec.roleTitle}</h3>
+                      <div className="flex-1 pl-3 md:pl-4 cursor-pointer" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }}>
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1.5">
+                          <h3 className="font-bold text-base md:text-lg text-slate-900 group-hover:text-primary-600 transition-colors truncate max-w-[200px] md:max-w-none">{rec.roleTitle}</h3>
                           <Badge className={STATUS_COLORS[rec.status]}>{rec.status}</Badge>
                         </div>
                         <div className="flex items-center text-xs font-medium text-slate-500 space-x-3">
-                          <span className="flex items-center gap-1.5 font-bold text-slate-700"><Briefcase size={12} className="text-slate-400" />{rec.company}</span>
+                          <span className="flex items-center gap-1.5 font-bold text-slate-700 truncate"><Briefcase size={12} className="text-slate-400" />{rec.company}</span>
                           <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
                           <span>{new Date(rec.dateSent).toLocaleDateString()}</span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 pl-4 md:pl-0">
-                        <Button variant="accent" size="xs" onClick={(e) => {e.stopPropagation(); handlePrep(rec);}} className="text-white"><BrainCircuit size={14} className="mr-1.5" /> Prep</Button>
-                        <Button variant="glass" size="xs" onClick={() => handleAIDraft(rec)} className="text-primary-600"><Zap size={14} className="mr-1.5" /> Draft</Button>
-                        <Button variant="secondary" size="xs" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }}><Eye size={14} className="mr-1.5" /> View</Button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(rec.id); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors"><Trash2 size={16} /></button>
+                      <div className="flex items-center gap-2 pl-3 md:pl-0 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+                        <Button variant="accent" size="xs" onClick={(e) => {e.stopPropagation(); handlePrep(rec);}} className="text-white whitespace-nowrap"><BrainCircuit size={14} className="mr-1.5" /> Prep</Button>
+                        <Button variant="glass" size="xs" onClick={() => handleAIDraft(rec)} className="text-primary-600 whitespace-nowrap"><Zap size={14} className="mr-1.5" /> Draft</Button>
+                        <Button variant="secondary" size="xs" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }} className="whitespace-nowrap"><Eye size={14} className="mr-1.5" /> View</Button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(rec.id); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors flex-shrink-0"><Trash2 size={16} /></button>
                       </div>
                     </div>
                   </Card>
@@ -457,7 +465,8 @@ const App: React.FC = () => {
               </div>
             ) : (
               <Card className="overflow-hidden border-none shadow-xl" noPadding>
-                 <table className="w-full text-left text-sm">
+                <div className="overflow-x-auto">
+                 <table className="w-full text-left text-sm min-w-[600px]">
                    <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
                      <tr>
                        <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Role</th>
@@ -484,6 +493,7 @@ const App: React.FC = () => {
                      ))}
                    </tbody>
                  </table>
+                </div>
               </Card>
             )}
             
@@ -499,10 +509,10 @@ const App: React.FC = () => {
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="flex justify-between items-center">
-              <div><h2 className="text-3xl font-black text-slate-900 tracking-tight">Network</h2><p className="text-slate-500 text-sm font-medium">Key relationships</p></div>
+              <div><h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Network</h2><p className="text-slate-500 text-sm font-medium">Key relationships</p></div>
               <div className="flex gap-2">
-                 <Button variant="secondary" onClick={() => { setImportMode('CONTACTS'); setIsImportModalOpen(true); }}><Upload size={16} className="mr-2" /> Import</Button>
-                 <Button onClick={() => { setEditingContact({}); setIsContactModalOpen(true); }} variant="gradient"><UserPlus size={18} className="mr-2" /> New Contact</Button>
+                 <Button variant="secondary" onClick={() => { setImportMode('CONTACTS'); setIsImportModalOpen(true); }} className="hidden sm:flex"><Upload size={16} className="mr-2" /> Import</Button>
+                 <Button onClick={() => { setEditingContact({}); setIsContactModalOpen(true); }} variant="gradient"><UserPlus size={18} className="mr-2" /> <span className="hidden sm:inline">New Contact</span><span className="sm:hidden">Add</span></Button>
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -536,8 +546,8 @@ const App: React.FC = () => {
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
              <div className="flex justify-between items-center">
-              <div><h2 className="text-3xl font-black text-slate-900 tracking-tight">Templates</h2><p className="text-slate-500 text-sm font-medium">Re-usable strategies</p></div>
-              <Button onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }} variant="gradient"><Plus size={18} className="mr-2" /> New Template</Button>
+              <div><h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Templates</h2><p className="text-slate-500 text-sm font-medium">Re-usable strategies</p></div>
+              <Button onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }} variant="gradient"><Plus size={18} className="mr-2" /> <span className="hidden sm:inline">New Template</span><span className="sm:hidden">New</span></Button>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {templates.map(t => (
@@ -562,23 +572,25 @@ const App: React.FC = () => {
       case 'audit':
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div><h2 className="text-3xl font-black text-slate-900 tracking-tight">Audit Logs</h2><p className="text-slate-500 text-sm font-medium">System immutable history</p></div>
+            <div><h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Audit Logs</h2><p className="text-slate-500 text-sm font-medium">System immutable history</p></div>
             <Card className="overflow-hidden shadow-lg border-none" noPadding>
-              <table className="w-full text-left text-sm">
-                <thead className="bg-slate-900 text-slate-400">
-                  <tr><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Action</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Entity</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Detail</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Time</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {logs.map(log => (
-                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-3"><span className={`text-[10px] font-bold px-2 py-1 rounded-full ${log.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{log.action}</span></td>
-                      <td className="px-6 py-3"><span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{log.entityType}</span></td>
-                      <td className="px-6 py-3 text-slate-800 font-medium text-xs">{log.message}</td>
-                      <td className="px-6 py-3 text-slate-400 font-mono text-[10px]">{new Date(log.executedAt).toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-[500px]">
+                  <thead className="bg-slate-900 text-slate-400">
+                    <tr><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Action</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Entity</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Detail</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Time</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {logs.map(log => (
+                      <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-3"><span className={`text-[10px] font-bold px-2 py-1 rounded-full ${log.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{log.action}</span></td>
+                        <td className="px-6 py-3"><span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{log.entityType}</span></td>
+                        <td className="px-6 py-3 text-slate-800 font-medium text-xs truncate max-w-[200px]">{log.message}</td>
+                        <td className="px-6 py-3 text-slate-400 font-mono text-[10px]">{new Date(log.executedAt).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </Card>
           </div>
         );
@@ -587,7 +599,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#f8fafc]">
+    <div className="h-full flex bg-[#f8fafc] overflow-hidden">
       {/* PERFORMANCE FIX: Fixed Background Layer */}
       <div className="fixed inset-0 z-[-1] mesh-bg pointer-events-none" />
 
@@ -597,20 +609,14 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Modern Sidebar */}
-      <aside className="w-20 lg:w-72 bg-slate-950 text-slate-400 flex flex-col fixed h-full z-40 border-r border-slate-800 transition-all duration-300">
-        <div className="p-6 flex items-center justify-center lg:justify-start gap-4 mb-6">
+      {/* Modern Sidebar - Hidden on Mobile */}
+      <aside className="hidden md:flex flex-none w-20 lg:w-72 bg-slate-950 text-slate-400 flex-col h-full border-r border-slate-800 overflow-y-auto z-40 transition-all duration-300">
+        <div className="p-6 flex items-center justify-center lg:justify-start gap-4 mb-6 sticky top-0 bg-slate-950 z-10">
           <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-accent-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary-500/30 flex-shrink-0"><Zap size={20} fill="currentColor" /></div>
           <div className="hidden lg:block"><h1 className="text-lg font-black text-white tracking-tight leading-none">ApexJob</h1><p className="text-[10px] font-bold text-primary-400 uppercase tracking-widest mt-1">Pro CRM</p></div>
         </div>
         <nav className="flex-1 px-4 space-y-2">
-          {[
-            { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
-            { id: 'applications', label: 'Pipeline', icon: <Briefcase size={20} /> },
-            { id: 'contacts', label: 'Network', icon: <Users size={20} /> },
-            { id: 'templates', label: 'Templates', icon: <FileText size={20} /> },
-            { id: 'audit', label: 'System Logs', icon: <History size={20} /> },
-          ].map((item) => (
+          {navItems.map((item) => (
             <button key={item.id} onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center gap-4 px-3 py-3 rounded-xl transition-all duration-200 group relative ${activeTab === item.id ? 'text-white bg-white/5 shadow-inner' : 'hover:text-white hover:bg-white/5'}`}
             >
@@ -620,30 +626,51 @@ const App: React.FC = () => {
             </button>
           ))}
         </nav>
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
+        <div className="p-4 border-t border-slate-800 bg-slate-900/50 sticky bottom-0">
           <button onClick={handleLogout} className="w-full flex items-center justify-center lg:justify-start gap-3 p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors">
             <LogOut size={18} /><span className="hidden lg:block text-xs font-bold uppercase tracking-widest">Exit</span>
           </button>
         </div>
       </aside>
 
-      <main className="flex-1 ml-20 lg:ml-72 p-6 lg:p-10 min-w-0">
-        <header className="mb-10 sticky top-4 z-30">
-          {/* PERFORMANCE FIX: Completely removed glassmorphism (backdrop-blur) from sticky header */}
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-200 z-50 flex justify-around items-center px-2 py-3 pb-safe">
+        {navItems.map((item) => (
+           <button 
+             key={item.id} 
+             onClick={() => setActiveTab(item.id)}
+             className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${activeTab === item.id ? 'text-primary-600 bg-primary-50' : 'text-slate-400'}`}
+           >
+             {React.cloneElement(item.icon as React.ReactElement, { size: 20 })}
+             <span className="text-[9px] font-bold mt-1">{item.label}</span>
+           </button>
+        ))}
+        <button onClick={handleLogout} className="flex flex-col items-center justify-center p-2 text-rose-400">
+           <LogOut size={20} />
+           <span className="text-[9px] font-bold mt-1">Exit</span>
+        </button>
+      </nav>
+
+      <main className="flex-1 h-full overflow-y-auto relative p-4 md:p-6 lg:p-10 pb-24 md:pb-10 min-w-0 transition-all duration-300 scroll-smooth">
+        <header className="mb-6 md:mb-10 sticky top-0 z-30 pt-2 -mt-2 pb-2 bg-[#f8fafc]/95 backdrop-blur-sm">
           <div className="bg-white/95 p-3 rounded-full shadow-sm border border-slate-200 flex justify-between items-center">
-             <div className="flex items-center gap-4 pl-4">
+             <div className="flex items-center gap-3 pl-2 md:pl-4">
+                <div className="w-8 h-8 md:hidden bg-gradient-to-br from-primary-600 to-accent-600 rounded-lg flex items-center justify-center text-white"><Zap size={16} fill="currentColor" /></div>
                 <div className="hidden md:flex flex-col">
                    <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Command Center</h2>
                    <div className="flex items-center gap-2"><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div><span className="text-sm font-bold text-slate-700">System Online</span></div>
                 </div>
+                {/* Mobile Title */}
+                <span className="md:hidden font-black text-slate-900 tracking-tight">ApexJob</span>
              </div>
-             <div className="flex items-center gap-3 pr-2">
+             <div className="flex items-center gap-2 md:gap-3 pr-2">
               <div className="relative group hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={16} />
                 <input placeholder="Search records..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 pr-4 py-2 w-64 bg-slate-100/50 border border-transparent rounded-full text-sm font-medium focus:bg-white focus:border-primary-200 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none" />
               </div>
+              
               <Button variant={showFilters ? 'primary' : 'secondary'} onClick={() => setShowFilters(!showFilters)} size="sm" className={showFilters ? 'shadow-primary-500/20' : ''}>
-                <Filter size={16} className="mr-2" /> Filters
+                <Filter size={16} className="md:mr-2" /> <span className="hidden md:inline">Filters</span>
                 {(filterStatuses.length > 0 || dateRange.start) && <Badge className="ml-2 bg-white text-primary-600">!</Badge>}
               </Button>
               
@@ -663,7 +690,13 @@ const App: React.FC = () => {
           </div>
 
           {showFilters && (
-            <div className="mt-2 p-6 glass-panel rounded-3xl animate-in slide-in-from-top-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="mt-2 p-6 glass-panel bg-white/95 rounded-3xl animate-in slide-in-from-top-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Mobile Search Field inside Filters */}
+              <div className="md:hidden">
+                <Label>Search</Label>
+                <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Keywords..." />
+              </div>
+
               <div>
                   <Label>Status</Label>
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -677,9 +710,9 @@ const App: React.FC = () => {
               <div>
                   <Label>Date Range</Label>
                   <div className="flex gap-2 mt-2">
-                    <input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500" />
+                    <input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 w-full" />
                     <span className="self-center text-slate-400">to</span>
-                    <input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500" />
+                    <input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 w-full" />
                   </div>
               </div>
             </div>
@@ -688,8 +721,8 @@ const App: React.FC = () => {
 
         {renderContent()}
 
-        {/* Modals */}
-        <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title={importMode === 'RECORDS' ? "Data Ingestion (Pipeline)" : "Data Ingestion (Contacts)"} size="lg">
+        {/* Modals - Adjusted for Mobile Width */}
+        <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title={importMode === 'RECORDS' ? "Import Records" : "Import Contacts"} size="lg">
            <div className="space-y-4">
               <div className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono">
                 {importMode === 'RECORDS' ? 'Format: Company, Role, Name, Email, Status' : 'Format: Name, Email, Company, LinkedIn, Notes'}

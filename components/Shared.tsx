@@ -55,7 +55,7 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
-export const Card: React.FC<{ children: React.ReactNode; className?: string; hoverEffect?: boolean; noPadding?: boolean }> = ({ 
+export const Card: React.FC<{ children: React.ReactNode; className?: string; hoverEffect?: boolean; noPadding?: boolean }> = React.memo(({ 
   children, 
   className = '', 
   hoverEffect = false,
@@ -63,11 +63,11 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string; hov
 }) => (
   <div className={`bg-white rounded-3xl border border-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 relative overflow-hidden
     ${hoverEffect ? 'hover:shadow-[0_20px_40px_-10px_rgba(124,58,237,0.1)] hover:-translate-y-1 hover:border-primary-100' : ''} 
-    ${noPadding ? 'p-0' : 'p-6'} 
+    ${noPadding ? 'p-0' : 'p-4 md:p-6'} 
     ${className}`}>
     {children}
   </div>
-);
+));
 
 export const Badge: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
   <span 
@@ -166,18 +166,18 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
   const sizes = { md: 'max-w-lg', lg: 'max-w-3xl', xl: 'max-w-5xl' };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md overflow-y-auto animate-in fade-in duration-200">
-      <div className={`glass-panel bg-white/95 rounded-3xl shadow-2xl w-full ${sizes[size]} overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 my-8 border border-white/50 ring-1 ring-black/5`}>
-        <div className="px-8 py-6 border-b border-slate-100/50 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-10">
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">{title}</h3>
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-md overflow-hidden animate-in fade-in duration-200">
+      <div className={`glass-panel bg-white/95 md:rounded-3xl rounded-t-3xl shadow-2xl w-full ${sizes[size]} md:w-auto w-full md:max-w-[95vw] overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 border border-white/50 ring-1 ring-black/5 max-h-[90vh] md:max-h-[calc(100vh-100px)] flex flex-col`}>
+        <div className="px-6 md:px-8 py-5 md:py-6 border-b border-slate-100/50 flex items-center justify-between bg-white/80 backdrop-blur-md z-10">
+          <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-tight truncate pr-4">{title}</h3>
           <button 
             onClick={onClose} 
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors flex-shrink-0"
           >
             &times;
           </button>
         </div>
-        <div className="p-8 max-h-[calc(100vh-200px)] overflow-y-auto custom-scrollbar">
+        <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1">
           {children}
         </div>
       </div>

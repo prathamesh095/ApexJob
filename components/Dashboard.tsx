@@ -1,18 +1,49 @@
 import React, { useMemo } from 'react';
 import { 
   Tooltip, ResponsiveContainer, 
-  AreaChart, Area, Cell, PieChart, Pie,
-  CartesianGrid, XAxis, YAxis
+  AreaChart, Area, Cell, PieChart, Pie
 } from 'recharts';
 import { TrackingRecord, ApplicationStatus } from '../types';
 import { Card } from './Shared';
-import { CheckCircle, Clock, Send, Target, TrendingUp, Sparkles, AlertCircle } from 'lucide-react';
+import { CheckCircle, Send, Target, Sparkles } from 'lucide-react';
 
 interface Props {
   applications: TrackingRecord[];
 }
 
-const Dashboard: React.FC<Props> = ({ applications = [] }) => {
+// Optimization: Memoize BentoCard to prevent re-renders unless props change
+const BentoCard = React.memo(({ title, value, subtext, icon: Icon, className = '', visual = 'default' }: any) => {
+    const visuals = {
+      default: "bg-white",
+      primary: "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-600/30",
+      dark: "bg-slate-900 text-white",
+      glass: "bg-white/60 backdrop-blur-xl border border-white/50"
+    };
+
+    return (
+      <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group ${visuals[visual as keyof typeof visuals]} ${className}`}>
+        <div className="relative z-10 flex flex-col h-full justify-between">
+          <div className="flex justify-between items-start mb-4">
+            <div className={`p-2.5 rounded-2xl ${visual === 'primary' || visual === 'dark' ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
+              <Icon size={20} />
+            </div>
+            {visual === 'primary' && <Sparkles size={16} className="text-primary-200 animate-pulse" />}
+          </div>
+          <div>
+             <h3 className={`text-3xl font-black tracking-tight mb-1 ${visual === 'default' ? 'text-slate-900' : 'text-white'}`}>{value}</h3>
+             <p className={`text-[11px] font-bold uppercase tracking-widest ${visual === 'default' ? 'text-slate-400' : 'text-white/60'}`}>{title}</p>
+             {subtext && <p className={`text-xs mt-2 font-medium ${visual === 'default' ? 'text-emerald-600' : 'text-primary-200'}`}>{subtext}</p>}
+          </div>
+        </div>
+        {/* Decorative Elements */}
+        {visual === 'primary' && (
+           <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
+        )}
+      </div>
+    );
+});
+
+const Dashboard: React.FC<Props> = React.memo(({ applications = [] }) => {
   const stats = useMemo(() => {
     const safeApps = Array.isArray(applications) ? applications : [];
     const total = safeApps.length;
@@ -60,44 +91,13 @@ const Dashboard: React.FC<Props> = ({ applications = [] }) => {
     return { total, active, offers, replies, pieData, velocityData, responseRate };
   }, [applications]);
 
-  const BentoCard = ({ title, value, subtext, icon: Icon, className = '', visual = 'default' }: any) => {
-    const visuals = {
-      default: "bg-white",
-      primary: "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-600/30",
-      dark: "bg-slate-900 text-white",
-      glass: "bg-white/60 backdrop-blur-xl border border-white/50"
-    };
-
-    return (
-      <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group ${visuals[visual as keyof typeof visuals]} ${className}`}>
-        <div className="relative z-10 flex flex-col h-full justify-between">
-          <div className="flex justify-between items-start mb-4">
-            <div className={`p-2.5 rounded-2xl ${visual === 'primary' || visual === 'dark' ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
-              <Icon size={20} />
-            </div>
-            {visual === 'primary' && <Sparkles size={16} className="text-primary-200 animate-pulse" />}
-          </div>
-          <div>
-             <h3 className={`text-3xl font-black tracking-tight mb-1 ${visual === 'default' ? 'text-slate-900' : 'text-white'}`}>{value}</h3>
-             <p className={`text-[11px] font-bold uppercase tracking-widest ${visual === 'default' ? 'text-slate-400' : 'text-white/60'}`}>{title}</p>
-             {subtext && <p className={`text-xs mt-2 font-medium ${visual === 'default' ? 'text-emerald-600' : 'text-primary-200'}`}>{subtext}</p>}
-          </div>
-        </div>
-        {/* Decorative Elements */}
-        {visual === 'primary' && (
-           <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-        )}
-      </div>
-    );
-  };
-
   const COLORS = ['#10b981', '#d946ef', '#8b5cf6', '#f43f5e', '#64748b', '#f97316', '#cbd5e1'];
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
-      {/* Top Row Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Top Row Metrics - Responsive Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <BentoCard 
           title="Active Pursuit" 
           value={stats.active} 
@@ -109,7 +109,7 @@ const Dashboard: React.FC<Props> = ({ applications = [] }) => {
           title="Total Initiated" 
           value={stats.total} 
           icon={Send} 
-          subtext="+12% from last month"
+          subtext="Lifetime Total"
         />
         <BentoCard 
           title="Response Rate" 
@@ -126,18 +126,18 @@ const Dashboard: React.FC<Props> = ({ applications = [] }) => {
         />
       </div>
 
-      {/* Main Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-auto lg:h-96">
+      {/* Main Grid - Stack on mobile, side-by-side on large screens */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-min">
         
-        {/* Activity Chart - Spans 2 cols */}
-        <Card className="lg:col-span-2 flex flex-col h-96 lg:h-auto relative overflow-hidden" noPadding>
+        {/* Activity Chart - Spans 2 cols on Desktop */}
+        <Card className="lg:col-span-2 flex flex-col h-80 md:h-96 lg:h-auto relative overflow-hidden min-h-[300px]" noPadding>
           <div className="p-6 pb-0 flex justify-between items-center z-10 relative">
              <div>
                <h3 className="text-lg font-black text-slate-900 tracking-tight">Velocity Matrix</h3>
-               <p className="text-xs text-slate-500 font-medium">Application throughput over time</p>
+               <p className="text-xs text-slate-500 font-medium">Application throughput</p>
              </div>
              <div className="bg-primary-50 text-primary-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide">
-               8 Week Trail
+               8 Weeks
              </div>
           </div>
           <div className="flex-1 w-full min-h-0 relative">
@@ -168,12 +168,12 @@ const Dashboard: React.FC<Props> = ({ applications = [] }) => {
         </Card>
 
         {/* Status Breakdown - Spans 1 col */}
-        <Card className="flex flex-col relative" noPadding>
+        <Card className="flex flex-col relative h-[350px] lg:h-auto" noPadding>
           <div className="p-6 pb-0">
              <h3 className="text-lg font-black text-slate-900 tracking-tight">Distribution</h3>
              <p className="text-xs text-slate-500 font-medium">Current status split</p>
           </div>
-          <div className="flex-1 min-h-[200px] relative">
+          <div className="flex-1 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -202,7 +202,7 @@ const Dashboard: React.FC<Props> = ({ applications = [] }) => {
               </div>
             </div>
           </div>
-          <div className="p-6 pt-0 flex flex-wrap gap-2 justify-center">
+          <div className="p-6 pt-0 flex flex-wrap gap-2 justify-center pb-8">
              {stats.pieData.slice(0, 4).map((d, i) => (
                <div key={i} className="flex items-center text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
                  <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
@@ -215,6 +215,6 @@ const Dashboard: React.FC<Props> = ({ applications = [] }) => {
       </div>
     </div>
   );
-};
+});
 
 export default Dashboard;

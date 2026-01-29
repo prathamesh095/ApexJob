@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ApexJob | Mission-Critical CRM</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -59,11 +59,21 @@
       }
     </script>
     <style>
-        body { 
+        /* Force full height for container scrolling */
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden; /* Prevent window scroll */
             font-family: 'Plus Jakarta Sans', sans-serif; 
             background-color: #f8fafc;
-            /* Hardware acceleration hint */
-            transform: translateZ(0);
+            transform: translateZ(0); /* Hardware accel */
+        }
+
+        #root {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
         }
         
         /* Global UI Polish */
@@ -72,8 +82,8 @@
         /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #c4b5fd; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #8b5cf6; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         /* Glassmorphism Utilities */
         .glass-panel {
@@ -84,13 +94,6 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
         }
         
-        .glass-panel-dark {
-            background: rgba(15, 23, 42, 0.85);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border-right: 1px solid rgba(255, 255, 255, 0.05);
-        }
-
         .mesh-bg {
             background-color: #f8fafc;
             background-image: 
@@ -104,6 +107,20 @@
         .mask-linear-fade {
             mask-image: linear-gradient(to right, black 80%, transparent 100%);
             -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
+        }
+
+        /* Safe area for mobile */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 20px);
+        }
+        
+        /* Hide scrollbar for cleaner UI in specific areas */
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .scrollbar-hide {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
     </style>
 <script type="importmap">
@@ -119,7 +136,7 @@
 }
 </script>
 </head>
-<body class="bg-slate-50 text-slate-900 antialiased selection:bg-primary-500 selection:text-white overflow-hidden">
+<body class="bg-slate-50 text-slate-900 antialiased selection:bg-primary-500 selection:text-white">
     <div id="root"></div>
 </body>
 </html>
