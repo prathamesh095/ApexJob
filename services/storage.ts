@@ -6,7 +6,9 @@ import {
   User,
   OutreachTemplate,
   EmailType,
-  Contact
+  Contact,
+  Reminder,
+  Notification
 } from '../types';
 import { auth } from './auth';
 
@@ -15,7 +17,9 @@ const STORAGE_KEYS = {
   LOGS: 'apex_logs_v3',
   TEMPLATES: 'apex_templates_v3',
   CONTACTS: 'apex_contacts_v3',
-  DRAFTS: 'apex_form_drafts_v3'
+  DRAFTS: 'apex_form_drafts_v3',
+  REMINDERS: 'apex_reminders_v3',
+  NOTIFICATIONS: 'apex_notifications_v3'
 };
 
 // Robust ID generation fallback
@@ -186,7 +190,6 @@ class StorageService {
     }
   }
 
-  // NEW: Batch Import for CSV
   saveRecordsBatch(recordsToImport: Partial<TrackingRecord>[]): void {
     const user = auth.getCurrentUser();
     if (!user) throw new Error("UNAUTHORIZED: Session invalid or expired.");
@@ -276,7 +279,6 @@ class StorageService {
     }
   }
 
-  // Batch Import for Contacts
   saveContactsBatch(contactsToImport: Partial<Contact>[]): void {
     const user = auth.getCurrentUser();
     if (!user) throw new Error("UNAUTHORIZED: Session invalid or expired.");
@@ -356,6 +358,100 @@ class StorageService {
     const filtered = templates.filter(t => t.id !== id);
     this.set(STORAGE_KEYS.TEMPLATES, filtered);
     this.log('DELETE', id, 'TEMPLATE', `Template purged: ${id}`);
+  }
+
+  // --- REMINDERS (NEW) ---
+  getReminders(): Reminder[] {
+    const user = auth.getCurrentUser();
+    if (!user) return [];
+    return this.get<Reminder>(STORAGE_KEYS.REMINDERS).filter(r => r.userId === user.id);
+  }
+
+  saveReminder(reminder: Partial<Reminder>): Reminder {
+    const user = auth.getCurrentUser();
+    if (!user) throw new Error("UNAUTHORIZED");
+    const reminders = this.get<Reminder>(STORAGE_KEYS.REMINDERS);
+    const now = Date.now();
+
+    if (reminder.id) {
+        const idx = reminders.findIndex(r => r.id === reminder.id);
+        if (idx === -1) throw new Error("Reminder not found");
+        const updated = { ...reminders[idx], ...reminder };
+        reminders[idx] = updated;
+        this.set(STORAGE_KEYS.REMINDERS, reminders);
+        return updated;
+    } else {
+        const newR: Reminder = {
+            id: generateId(),
+            userId: user.id,
+            recordId: reminder.recordId!,
+            title: reminder.title!,
+            dueAt: reminder.dueAt!,
+            status: 'PENDING',
+            createdAt: now
+        };
+        this.set(STORAGE_KEYS.REMINDERS, [...reminders, newR]);
+        return newR;
+    }
+  }
+
+  updateReminderStatus(id: string, status: Reminder['status']): void {
+    const reminders = this.get<Reminder>(STORAGE_KEYS.REMINDERS);
+    const idx = reminders.findIndex(r => r.id === id);
+    if (idx !== -1) {
+        reminders[idx].status = status;
+        this.set(STORAGE_KEYS.REMINDERS, reminders);
+    }
+  }
+
+  // --- NOTIFICATIONS (NEW) ---
+  getNotifications(): Notification[] {
+      const user = auth.getCurrentUser();
+      if (!user) return [];
+      return this.get<Notification>(STORAGE_KEYS.NOTIFICATIONS)
+                 .filter(n => n.userId === user.id)
+                 .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  addNotification(n: Omit<Notification, 'id' | 'createdAt' | 'read' | 'userId'>): Notification {
+      const user = auth.getCurrentUser();
+      if (!user) throw new Error("Unauthorized");
+      
+      const notifications = this.get<Notification>(STORAGE_KEYS.NOTIFICATIONS);
+      const newN: Notification = {
+          id: generateId(),
+          userId: user.id,
+          read: false,
+          createdAt: Date.now(),
+          ...n
+      };
+      // Keep only last 50 notifications
+      this.set(STORAGE_KEYS.NOTIFICATIONS, [newN, ...notifications].slice(0, 50));
+      return newN;
+  }
+
+  markNotificationRead(id: string): void {
+      const notifications = this.get<Notification>(STORAGE_KEYS.NOTIFICATIONS);
+      const idx = notifications.findIndex(n => n.id === id);
+      if (idx !== -1) {
+          notifications[idx].read = true;
+          this.set(STORAGE_KEYS.NOTIFICATIONS, notifications);
+      }
+  }
+  
+  markAllNotificationsRead(): void {
+      const user = auth.getCurrentUser();
+      if (!user) return;
+      const notifications = this.get<Notification>(STORAGE_KEYS.NOTIFICATIONS);
+      const updated = notifications.map(n => n.userId === user.id ? { ...n, read: true } : n);
+      this.set(STORAGE_KEYS.NOTIFICATIONS, updated);
+  }
+
+  clearNotifications(): void {
+     const user = auth.getCurrentUser();
+     if (!user) return;
+     const notifications = this.get<Notification>(STORAGE_KEYS.NOTIFICATIONS).filter(n => n.userId !== user.id);
+     this.set(STORAGE_KEYS.NOTIFICATIONS, notifications);
   }
 
   getLogs(): ExecutionLog[] {

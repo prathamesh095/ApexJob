@@ -54,10 +54,32 @@ export interface Attachment {
   uploadedAt: number;
 }
 
+export interface Reminder {
+  id: string;
+  userId: string;
+  recordId: string; // Link to TrackingRecord
+  title: string;
+  dueAt: number; // Timestamp
+  status: 'PENDING' | 'FIRED' | 'DISMISSED' | 'SNOOZED';
+  createdAt: number;
+}
+
+export interface Notification {
+  id: string;
+  userId: string;
+  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'REMINDER';
+  title: string;
+  message: string;
+  read: boolean;
+  createdAt: number;
+  linkToId?: string; // Optional deep link to a record
+}
+
 export interface TrackingRecord {
   id: string;
   userId: string;
   contactId?: string; // Link to first-class Contact entity
+  reminderId?: string; // Link to scheduled reminder
   
   // Canonical fields
   dateSent: string; 
@@ -110,7 +132,7 @@ export interface ExecutionLog {
   userId: string;
   action: string;
   entityId: string;
-  entityType: 'RECORD' | 'AUTH' | 'SYSTEM' | 'TEMPLATE' | 'CONTACT';
+  entityType: 'RECORD' | 'AUTH' | 'SYSTEM' | 'TEMPLATE' | 'CONTACT' | 'REMINDER' | 'NOTIFICATION';
   status: 'SUCCESS' | 'FAILURE' | 'INFO';
   message: string;
   executedAt: number;

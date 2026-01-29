@@ -1,220 +1,259 @@
+
 import React, { useMemo } from 'react';
 import { 
-  Tooltip, ResponsiveContainer, 
-  AreaChart, Area, Cell, PieChart, Pie
+  ResponsiveContainer, 
+  AreaChart, Area, PieChart, Pie, Cell, Tooltip
 } from 'recharts';
 import { TrackingRecord, ApplicationStatus } from '../types';
-import { Card } from './Shared';
-import { CheckCircle, Send, Target, Sparkles } from 'lucide-react';
+import { 
+  CheckCircle, Send, Target, Sparkles, Activity, Layers, 
+  BarChart3, AlertCircle, Clock, Calendar, ArrowRight, 
+  Briefcase, Mail, MessageSquare 
+} from 'lucide-react';
+import { Card, Button, Badge } from './Shared';
+import { STATUS_STYLES } from '../constants';
 
 interface Props {
   applications: TrackingRecord[];
+  onOpenRecord: (record: TrackingRecord) => void;
 }
 
-// Optimization: Memoize BentoCard to prevent re-renders unless props change
-const BentoCard = React.memo(({ title, value, subtext, icon: Icon, className = '', visual = 'default' }: any) => {
-    const visuals = {
-      default: "bg-white",
-      primary: "bg-gradient-to-br from-primary-600 to-primary-700 text-white shadow-lg shadow-primary-600/30",
-      dark: "bg-slate-900 text-white",
-      glass: "bg-white/60 backdrop-blur-xl border border-white/50"
-    };
+// Helper to determine urgency level
+const getUrgency = (record: TrackingRecord) => {
+  const today = new Date().toISOString().split('T')[0];
+  if (record.status === ApplicationStatus.INTERVIEWING) return 'critical';
+  if (record.nextFollowUpDate && record.nextFollowUpDate < today && !record.followUpSent) return 'overdue';
+  if (record.nextFollowUpDate === today && !record.followUpSent) return 'due_today';
+  return 'normal';
+};
 
-    return (
-      <div className={`rounded-3xl p-6 relative overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1 group ${visuals[visual as keyof typeof visuals]} ${className}`}>
-        <div className="relative z-10 flex flex-col h-full justify-between">
-          <div className="flex justify-between items-start mb-4">
-            <div className={`p-2.5 rounded-2xl ${visual === 'primary' || visual === 'dark' ? 'bg-white/20' : 'bg-slate-100 text-slate-600'}`}>
-              <Icon size={20} />
-            </div>
-            {visual === 'primary' && <Sparkles size={16} className="text-primary-200 animate-pulse" />}
+const ActionItem = ({ record, reason, type, onOpen }: { record: TrackingRecord; reason: string; type: 'critical' | 'overdue' | 'info'; onOpen: () => void }) => {
+  const urgencyColors = {
+    critical: 'border-l-4 border-l-purple-500 bg-purple-500/5',
+    overdue: 'border-l-4 border-l-red-500 bg-red-500/5',
+    info: 'border-l-4 border-l-primary-500 bg-primary-500/5'
+  };
+
+  const icons = {
+    critical: <Calendar className="text-purple-400" size={16} />,
+    overdue: <AlertCircle className="text-red-400" size={16} />,
+    info: <Clock className="text-primary-400" size={16} />
+  };
+
+  return (
+    <div className={`p-4 rounded-lg border border-border flex items-center justify-between group hover:border-border-strong transition-all ${urgencyColors[type]}`}>
+      <div className="flex items-start gap-4">
+        <div className="mt-1">{icons[type]}</div>
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="text-sm font-bold text-text-primary">{record.company}</h4>
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface border border-border text-text-muted font-medium">{record.roleTitle}</span>
           </div>
-          <div>
-             <h3 className={`text-3xl font-black tracking-tight mb-1 ${visual === 'default' ? 'text-slate-900' : 'text-white'}`}>{value}</h3>
-             <p className={`text-[11px] font-bold uppercase tracking-widest ${visual === 'default' ? 'text-slate-400' : 'text-white/60'}`}>{title}</p>
-             {subtext && <p className={`text-xs mt-2 font-medium ${visual === 'default' ? 'text-emerald-600' : 'text-primary-200'}`}>{subtext}</p>}
-          </div>
+          <p className="text-xs text-text-secondary">{reason}</p>
         </div>
-        {/* Decorative Elements */}
-        {visual === 'primary' && (
-           <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-700"></div>
-        )}
       </div>
-    );
-});
+      <Button size="xs" variant="secondary" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={onOpen}>
+        Open
+      </Button>
+    </div>
+  );
+};
 
-const Dashboard: React.FC<Props> = React.memo(({ applications = [] }) => {
+const StatCard = ({ label, value, icon: Icon, trend, color = "text-primary-400" }: any) => (
+  <div className="p-5 bg-surface border border-border rounded-xl flex items-center justify-between hover:border-border-strong transition-colors">
+    <div>
+      <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1">{label}</p>
+      <h3 className="text-2xl font-bold text-text-primary tracking-tight">{value}</h3>
+      {trend && <p className="text-[10px] text-text-secondary mt-1">{trend}</p>}
+    </div>
+    <div className={`p-3 rounded-lg bg-surface-highlight border border-border ${color}`}>
+      <Icon size={20} />
+    </div>
+  </div>
+);
+
+const Dashboard: React.FC<Props> = ({ applications = [], onOpenRecord }) => {
   const stats = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
     const safeApps = Array.isArray(applications) ? applications : [];
+    
+    // ACTIONABLE ITEMS
+    const overdue = safeApps.filter(a => 
+      [ApplicationStatus.SENT, ApplicationStatus.INTERVIEWING].includes(a.status) && 
+      a.nextFollowUpDate && a.nextFollowUpDate < today && !a.followUpSent
+    );
+    
+    const dueToday = safeApps.filter(a => 
+      [ApplicationStatus.SENT, ApplicationStatus.INTERVIEWING].includes(a.status) && 
+      a.nextFollowUpDate === today && !a.followUpSent
+    );
+
+    const interviewing = safeApps.filter(a => a.status === ApplicationStatus.INTERVIEWING);
+    
+    const recentReplies = safeApps.filter(a => a.replyReceived && a.replyDate && a.replyDate >= new Date(Date.now() - 3 * 86400000).toISOString().split('T')[0]);
+
+    // METRICS
     const total = safeApps.length;
     const active = safeApps.filter(a => [ApplicationStatus.SENT, ApplicationStatus.INTERVIEWING].includes(a.status)).length;
     const offers = safeApps.filter(a => a.status === ApplicationStatus.OFFER).length;
     const replies = safeApps.filter(a => a.replyReceived).length;
+    const responseRate = total > 0 ? Math.round((replies / total) * 100) : 0;
 
+    // CHARTS
     const statusCounts = safeApps.reduce((acc, app) => {
-      const status = app.status || 'UNKNOWN';
-      acc[status] = (acc[status] || 0) + 1;
+      acc[app.status] = (acc[app.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // Order matters for the chart visual balance
-    const desiredOrder = [
-      ApplicationStatus.OFFER,
-      ApplicationStatus.INTERVIEWING,
-      ApplicationStatus.SENT,
-      ApplicationStatus.REJECTED,
-      ApplicationStatus.GHOSTED,
-      ApplicationStatus.WITHDRAWN,
-      ApplicationStatus.DRAFT
-    ];
+    const pieData = [
+      ApplicationStatus.OFFER, ApplicationStatus.INTERVIEWING, ApplicationStatus.SENT,
+      ApplicationStatus.REJECTED, ApplicationStatus.GHOSTED
+    ].map(status => ({ name: status, value: statusCounts[status] || 0 })).filter(d => d.value > 0);
 
-    const pieData = desiredOrder
-      .map(status => ({ name: status, value: statusCounts[status] || 0 }))
-      .filter(d => d.value > 0);
+    // Recent Activity Feed
+    const recentActivity = [...safeApps]
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+      .slice(0, 5);
 
-    // Calculate response rate
-    const responseRate = total > 0 ? Math.round((replies / total) * 100) : 0;
-
-    // Velocity
-    const now = Date.now();
-    const msPerWeek = 7 * 24 * 60 * 60 * 1000;
-    const velocityData = Array.from({length: 8}).map((_, i) => {
-      const weekStart = now - (8 - i) * msPerWeek;
-      const weekEnd = now - (7 - i) * msPerWeek;
-      const count = safeApps.filter(a => {
-        const d = a.createdAt || 0;
-        return d >= weekStart && d < weekEnd;
-      }).length;
-      return { week: `Week ${i + 1}`, count };
-    });
-
-    return { total, active, offers, replies, pieData, velocityData, responseRate };
+    return { 
+      total, active, offers, responseRate, 
+      overdue, dueToday, interviewing, recentReplies,
+      pieData, recentActivity 
+    };
   }, [applications]);
 
-  const COLORS = ['#10b981', '#d946ef', '#8b5cf6', '#f43f5e', '#64748b', '#f97316', '#cbd5e1'];
+  const PIE_COLORS = ['#10b981', '#a855f7', '#6366f1', '#ef4444', '#71717a'];
+
+  const hasActionItems = stats.interviewing.length > 0 || stats.dueToday.length > 0 || stats.overdue.length > 0 || stats.recentReplies.length > 0;
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-8 animate-fade-in max-w-7xl mx-auto">
       
-      {/* Top Row Metrics - Responsive Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        <BentoCard 
-          title="Active Pursuit" 
-          value={stats.active} 
-          icon={Target} 
-          visual="primary"
-          subtext="Current Pipeline"
-        />
-        <BentoCard 
-          title="Total Initiated" 
-          value={stats.total} 
-          icon={Send} 
-          subtext="Lifetime Total"
-        />
-        <BentoCard 
-          title="Response Rate" 
-          value={`${stats.responseRate}%`} 
-          icon={CheckCircle} 
-          subtext={`${stats.replies} Total Replies`}
-        />
-        <BentoCard 
-          title="Offers Secured" 
-          value={stats.offers} 
-          icon={Sparkles} 
-          visual="dark"
-          className="shadow-2xl shadow-primary-500/20"
-        />
-      </div>
+      {/* 1. FOCUS ZONE - ACTIONABLE INTELLIGENCE */}
+      <section>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-1.5 bg-primary-500/10 rounded text-primary-400">
+            <Target size={18} />
+          </div>
+          <h2 className="text-lg font-bold text-text-primary tracking-tight">Focus Zone</h2>
+          <span className="text-xs text-text-muted font-medium ml-auto">
+            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+          </span>
+        </div>
 
-      {/* Main Grid - Stack on mobile, side-by-side on large screens */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 auto-rows-min">
-        
-        {/* Activity Chart - Spans 2 cols on Desktop */}
-        <Card className="lg:col-span-2 flex flex-col h-80 md:h-96 lg:h-auto relative overflow-hidden min-h-[300px]" noPadding>
-          <div className="p-6 pb-0 flex justify-between items-center z-10 relative">
-             <div>
-               <h3 className="text-lg font-black text-slate-900 tracking-tight">Velocity Matrix</h3>
-               <p className="text-xs text-slate-500 font-medium">Application throughput</p>
-             </div>
-             <div className="bg-primary-50 text-primary-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide">
-               8 Weeks
-             </div>
+        {hasActionItems ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {stats.interviewing.map(rec => (
+              <ActionItem key={rec.id} record={rec} type="critical" reason="Active Interview Phase" onOpen={() => onOpenRecord(rec)} />
+            ))}
+            {stats.dueToday.map(rec => (
+              <ActionItem key={rec.id} record={rec} type="info" reason="Follow-up scheduled for today" onOpen={() => onOpenRecord(rec)} />
+            ))}
+            {stats.overdue.map(rec => (
+              <ActionItem key={rec.id} record={rec} type="overdue" reason={`Overdue by ${Math.floor((Date.now() - new Date(rec.nextFollowUpDate!).getTime()) / 86400000)} days`} onOpen={() => onOpenRecord(rec)} />
+            ))}
+            {stats.recentReplies.map(rec => (
+              <ActionItem key={rec.id} record={rec} type="info" reason="New reply received recently" onOpen={() => onOpenRecord(rec)} />
+            ))}
           </div>
-          <div className="flex-1 w-full min-h-0 relative">
-            <ResponsiveContainer width="100%" height="100%">
-               <AreaChart data={stats.velocityData} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
-                 <defs>
-                   <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                     <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.4}/>
-                     <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
-                   </linearGradient>
-                 </defs>
-                 <Tooltip 
-                   contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(4px)' }}
-                   itemStyle={{ color: '#1e293b', fontWeight: 'bold', fontSize: '12px' }}
-                   labelStyle={{ display: 'none' }}
-                 />
-                 <Area 
-                   type="monotone" 
-                   dataKey="count" 
-                   stroke="#7c3aed" 
-                   strokeWidth={4} 
-                   fillOpacity={1} 
-                   fill="url(#colorCount)" 
-                 />
-               </AreaChart>
-             </ResponsiveContainer>
-          </div>
-        </Card>
-
-        {/* Status Breakdown - Spans 1 col */}
-        <Card className="flex flex-col relative h-[350px] lg:h-auto" noPadding>
-          <div className="p-6 pb-0">
-             <h3 className="text-lg font-black text-slate-900 tracking-tight">Distribution</h3>
-             <p className="text-xs text-slate-500 font-medium">Current status split</p>
-          </div>
-          <div className="flex-1 relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={stats.pieData}
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  cornerRadius={6}
-                >
-                  {stats.pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                   contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}
-                   itemStyle={{ color: '#1e293b', fontWeight: 'bold', fontSize: '12px' }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            {/* Center Text Overlay */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="text-center">
-                 <span className="block text-2xl font-black text-slate-900">{stats.total}</span>
-                 <span className="text-[10px] uppercase font-bold text-slate-400">Total</span>
-              </div>
+        ) : (
+          <div className="bg-surface/50 border border-border border-dashed rounded-xl p-8 text-center flex flex-col items-center">
+            <div className="w-12 h-12 bg-surface-highlight rounded-full flex items-center justify-center text-text-muted mb-3">
+              <CheckCircle size={20} />
             </div>
+            <h3 className="text-sm font-bold text-text-primary">All caught up</h3>
+            <p className="text-xs text-text-muted mt-1 max-w-xs">No urgent follow-ups or pending actions for today. Great job keeping the pipeline clean.</p>
           </div>
-          <div className="p-6 pt-0 flex flex-wrap gap-2 justify-center pb-8">
-             {stats.pieData.slice(0, 4).map((d, i) => (
-               <div key={i} className="flex items-center text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-md">
-                 <div className="w-2 h-2 rounded-full mr-1.5" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                 {d.name}
-               </div>
-             ))}
-          </div>
-        </Card>
+        )}
+      </section>
+
+      {/* 2. PIPELINE SNAPSHOT */}
+      <section>
+        <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-4">Pipeline Health</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <StatCard label="Active Applications" value={stats.active} icon={Activity} color="text-primary-400" />
+          <StatCard label="Offers Secured" value={stats.offers} icon={Sparkles} color="text-emerald-400" />
+          <StatCard label="Response Rate" value={`${stats.responseRate}%`} icon={MessageSquare} color="text-purple-400" />
+          <StatCard label="Total Volume" value={stats.total} icon={Layers} color="text-text-muted" />
+        </div>
+      </section>
+
+      {/* 3. TRENDS & ACTIVITY GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* RECENT ACTIVITY FEED */}
+        <div className="lg:col-span-2 space-y-4">
+           <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest">Recent Momentum</h3>
+           </div>
+           <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              {stats.recentActivity.length > 0 ? (
+                <div className="divide-y divide-border">
+                  {stats.recentActivity.map(rec => (
+                    <div key={rec.id} onClick={() => onOpenRecord(rec)} className="p-4 flex items-center justify-between hover:bg-surface-highlight/50 transition-colors group cursor-pointer">
+                       <div className="flex items-center gap-4">
+                          <div className={`w-2 h-2 rounded-full ${rec.status === ApplicationStatus.OFFER ? 'bg-emerald-500' : 'bg-primary-500'}`}></div>
+                          <div>
+                             <h4 className="text-sm font-bold text-text-primary">{rec.roleTitle}</h4>
+                             <p className="text-xs text-text-secondary">{rec.company} • <span className="text-text-muted">{new Date(rec.updatedAt).toLocaleDateString()}</span></p>
+                          </div>
+                       </div>
+                       <Badge className={`${STATUS_STYLES[rec.status]} opacity-70 group-hover:opacity-100`}>{rec.status}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-8 text-center text-xs text-text-muted">No recent activity recorded.</div>
+              )}
+           </div>
+        </div>
+
+        {/* STATUS DISTRIBUTION (Compact) */}
+        <div>
+           <h3 className="text-xs font-bold text-text-muted uppercase tracking-widest mb-4">Distribution</h3>
+           <div className="bg-surface border border-border rounded-xl p-6 flex flex-col items-center justify-center h-[280px]">
+              <div className="w-full h-40 relative">
+                 <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                       <Pie 
+                          data={stats.pieData} 
+                          innerRadius={50} 
+                          outerRadius={70} 
+                          paddingAngle={4} 
+                          dataKey="value" 
+                          stroke="none"
+                       >
+                          {stats.pieData.map((entry, index) => (
+                             <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                       </Pie>
+                       <Tooltip 
+                          contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', fontSize: '12px' }} 
+                          itemStyle={{ color: '#fff' }}
+                       />
+                    </PieChart>
+                 </ResponsiveContainer>
+                 {/* Center Label */}
+                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-2xl font-bold text-text-primary">{stats.total}</span>
+                    <span className="text-[9px] uppercase font-bold text-text-muted">Apps</span>
+                 </div>
+              </div>
+              
+              <div className="flex flex-wrap justify-center gap-2 mt-4 w-full">
+                 {stats.pieData.slice(0, 4).map((d, i) => (
+                    <div key={i} className="flex items-center text-[10px] text-text-secondary bg-surface-highlight px-2 py-1 rounded border border-border">
+                       <div className="w-1.5 h-1.5 rounded-full mr-1.5" style={{ backgroundColor: PIE_COLORS[i] }}></div>
+                       {d.name}
+                    </div>
+                 ))}
+              </div>
+           </div>
+        </div>
 
       </div>
     </div>
   );
-});
+};
 
 export default Dashboard;

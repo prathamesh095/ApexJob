@@ -92,16 +92,16 @@ export const ContactForm: React.FC<Props> = ({ initialData = {} as Partial<Conta
   return (
     <div className="relative">
       {/* Save Status Header */}
-      <div className="flex justify-between items-center bg-slate-50 rounded-lg p-2 px-3 border border-slate-100 mb-6">
-        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Contact Editor</span>
+      <div className="flex justify-between items-center bg-white/5 rounded-lg p-2 px-3 border border-white/10 mb-6">
+        <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Contact Editor</span>
         <div className="flex items-center gap-2">
             {saveStatus === 'saving' && (
-                <span className="flex items-center text-[10px] text-primary-500 font-bold uppercase tracking-wider">
+                <span className="flex items-center text-[10px] text-primary-400 font-bold uppercase tracking-wider">
                     <Loader2 size={10} className="mr-1.5 animate-spin" /> Saving...
                 </span>
             )}
             {saveStatus === 'saved' && (
-                <span className="flex items-center text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                <span className="flex items-center text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
                     <Cloud size={10} className="mr-1.5" /> Draft Saved
                 </span>
             )}
@@ -109,14 +109,14 @@ export const ContactForm: React.FC<Props> = ({ initialData = {} as Partial<Conta
       </div>
 
       {hasDraft && (
-        <div className="bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 p-3 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm mb-6">
+        <div className="bg-primary-500/10 border border-primary-500/20 p-3 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm mb-6">
           <div className="flex items-center space-x-3">
-            <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
+            <div className="bg-primary-500/20 p-1.5 rounded-lg text-primary-300">
                 <RefreshCw size={14} />
             </div>
             <div>
-                <p className="text-xs font-bold text-indigo-900">Unsaved work found</p>
-                <p className="text-[10px] text-indigo-600/80">Restoring overwrites current fields</p>
+                <p className="text-xs font-bold text-primary-200">Unsaved work found</p>
+                <p className="text-[10px] text-primary-400/80">Restoring overwrites current fields</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -171,13 +171,13 @@ export const ContactForm: React.FC<Props> = ({ initialData = {} as Partial<Conta
         <div>
           <Label>Internal Relationship Meta-Notes</Label>
           <textarea 
-            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none h-32 transition-all font-medium"
+            className="w-full px-3 py-2 bg-black/20 border border-white/10 rounded-xl text-sm text-zinc-200 placeholder:text-zinc-600 focus:ring-2 focus:ring-primary-500/50 outline-none h-32 transition-all font-medium"
             value={formData.notes} 
             onChange={e => handleChange('notes', e.target.value)}
             placeholder="Context: Networking event 04/24, strong focus on Rust/TS..."
           />
         </div>
-        <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
+        <div className="flex justify-end gap-3 pt-6 border-t border-white/10">
           <Button variant="ghost" type="button" onClick={() => { storage.clearDraft(draftKey); onCancel(); }}>Abort</Button>
           <Button type="submit" size="lg" className="px-8 shadow-md">Commit Contact Node</Button>
         </div>

@@ -1,7 +1,9 @@
-import React, { useCallback, useState } from 'react';
-import { UploadCloud, FileText, X, AlertCircle } from 'lucide-react';
-import { Attachment } from '../types';
 
+import React, { useCallback, useState } from 'react';
+import { UploadCloud, FileText, X, AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Bell, Trash2, CheckCircle, Info } from 'lucide-react';
+import { Attachment, Notification } from '../types';
+
+// --- SYSTEM BUTTON ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'glass' | 'gradient' | 'accent';
   size?: 'xs' | 'sm' | 'md' | 'lg';
@@ -16,23 +18,23 @@ export const Button: React.FC<ButtonProps> = ({
   isLoading,
   ...props 
 }) => {
-  const base = "inline-flex items-center justify-center font-bold transition-all duration-300 rounded-full disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-offset-2 relative overflow-hidden";
+  const base = "inline-flex items-center justify-center font-medium transition-all duration-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-background relative overflow-hidden active:scale-[0.98]";
   
   const variants = {
-    primary: "bg-primary-600 text-white shadow-lg shadow-primary-500/30 hover:bg-primary-700 hover:shadow-primary-500/40 border border-transparent",
-    accent: "bg-accent-500 text-white shadow-lg shadow-accent-500/30 hover:bg-accent-600 hover:shadow-accent-500/40 border border-transparent",
-    gradient: "text-white shadow-lg shadow-primary-500/30 bg-gradient-to-r from-primary-600 to-accent-500 hover:from-primary-500 hover:to-accent-400 border-none",
-    secondary: "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm focus:ring-slate-200 hover:text-primary-600",
-    danger: "bg-rose-50 text-rose-600 border border-rose-100 hover:bg-rose-600 hover:text-white hover:shadow-rose-500/30 focus:ring-rose-500",
-    ghost: "bg-transparent text-slate-500 hover:bg-slate-100/50 hover:text-primary-700 focus:ring-slate-200",
-    glass: "bg-white/40 backdrop-blur-md border border-white/50 text-slate-700 hover:bg-white/60 shadow-sm hover:text-primary-700"
+    primary: "bg-primary-600 text-white hover:bg-primary-500 shadow-lg shadow-primary-900/20 border border-transparent focus:ring-primary-500",
+    accent: "bg-accent-600 text-white hover:bg-accent-500 shadow-lg shadow-accent-900/20 border border-transparent focus:ring-accent-500",
+    gradient: "text-white bg-gradient-to-r from-primary-600 to-indigo-500 hover:from-primary-500 hover:to-indigo-400 border border-white/5 shadow-glow",
+    secondary: "bg-surface-highlight text-text-secondary border border-border hover:bg-border-strong hover:text-text-primary focus:ring-zinc-500",
+    danger: "bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 hover:border-red-500/30 focus:ring-red-500",
+    ghost: "bg-transparent text-text-muted hover:text-text-primary hover:bg-surface-highlight focus:ring-zinc-500",
+    glass: "glass-button text-text-secondary shadow-sm backdrop-blur-md"
   };
 
   const sizes = {
-    xs: "px-2.5 py-1 text-[10px]",
-    sm: "px-4 py-2 text-xs",
-    md: "px-6 py-2.5 text-sm",
-    lg: "px-8 py-3.5 text-base"
+    xs: "px-2.5 py-1 text-[10px] tracking-wide uppercase font-bold",
+    sm: "px-3 py-1.5 text-xs font-medium",
+    md: "px-4 py-2 text-sm",
+    lg: "px-6 py-3 text-base"
   };
 
   return (
@@ -41,9 +43,6 @@ export const Button: React.FC<ButtonProps> = ({
       disabled={isLoading || props.disabled}
       {...props}
     >
-      {variant === 'gradient' && (
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-shimmer pointer-events-none"></div>
-      )}
       {isLoading ? (
         <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -55,52 +54,57 @@ export const Button: React.FC<ButtonProps> = ({
   );
 };
 
+// --- SYSTEM CARD ---
 export const Card: React.FC<{ children: React.ReactNode; className?: string; hoverEffect?: boolean; noPadding?: boolean }> = React.memo(({ 
   children, 
   className = '', 
   hoverEffect = false,
   noPadding = false 
 }) => (
-  <div className={`bg-white rounded-3xl border border-white shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] transition-all duration-300 relative overflow-hidden
-    ${hoverEffect ? 'hover:shadow-[0_20px_40px_-10px_rgba(124,58,237,0.1)] hover:-translate-y-1 hover:border-primary-100' : ''} 
-    ${noPadding ? 'p-0' : 'p-4 md:p-6'} 
+  <div className={`bg-surface border border-border rounded-xl overflow-hidden transition-all duration-300 
+    ${hoverEffect ? 'hover:border-primary-500/20 hover:shadow-soft' : ''} 
+    ${noPadding ? 'p-0' : 'p-5'} 
     ${className}`}>
     {children}
   </div>
 ));
 
+// --- SYSTEM BADGE ---
 export const Badge: React.FC<{ children: React.ReactNode; className?: string; onClick?: () => void }> = ({ children, className = '', onClick }) => (
   <span 
     onClick={onClick}
-    className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border select-none transition-all duration-200 shadow-sm ${onClick ? 'cursor-pointer hover:scale-105 active:scale-95' : ''} ${className}`}
+    className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider select-none transition-all duration-200 
+      ${onClick ? 'cursor-pointer hover:brightness-110 active:scale-95' : ''} ${className}`}
   >
     {children}
   </span>
 );
 
+// --- SYSTEM INPUT ---
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   icon?: React.ReactNode;
 }
 
-export const Input: React.FC<InputProps> = ({ error, icon, ...props }) => (
+export const Input: React.FC<InputProps> = ({ error, icon, className = '', ...props }) => (
   <div className="w-full group">
     <div className="relative">
-      {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors">{icon}</div>}
+      {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-primary-400 transition-colors">{icon}</div>}
       <input 
         {...props} 
-        className={`w-full ${icon ? 'pl-10' : 'px-4'} py-3 bg-white border border-slate-200 rounded-xl text-sm transition-all duration-200 outline-none
-          focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 hover:border-primary-300 text-slate-700 placeholder:text-slate-400 shadow-sm
-          ${error ? 'border-rose-300 ring-4 ring-rose-50 bg-rose-50/10 text-rose-900 placeholder:text-rose-300' : ''} 
-          ${props.className || ''}`} 
+        className={`w-full ${icon ? 'pl-10' : 'px-3'} py-2.5 bg-surface-highlight border border-border rounded-lg text-sm text-text-primary placeholder:text-text-muted transition-all duration-200 outline-none
+          focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 hover:border-border-strong
+          ${error ? 'border-red-500/50 focus:border-red-500 focus:ring-red-500/20' : ''} 
+          ${className}`} 
       />
     </div>
-    {error && <p className="mt-1.5 text-[10px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1 animate-in slide-in-from-top-1">
-      <span className="w-1 h-1 bg-rose-500 rounded-full"></span> {error}
+    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1 animate-fade-in">
+      <AlertCircle size={10} /> {error}
     </p>}
   </div>
 );
 
+// --- SYSTEM TEXTAREA ---
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   error?: string;
 }
@@ -109,17 +113,18 @@ export const Textarea: React.FC<TextareaProps> = ({ error, ...props }) => (
   <div className="w-full">
     <textarea 
       {...props} 
-      className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm transition-all duration-200 outline-none
-        focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 hover:border-primary-300 text-slate-700 placeholder:text-slate-400 shadow-sm
-        ${error ? 'border-rose-300 ring-4 ring-rose-50 bg-rose-50/10' : ''} 
+      className={`w-full px-3 py-3 bg-surface-highlight border border-border rounded-lg text-sm text-text-primary placeholder:text-text-muted transition-all duration-200 outline-none
+        focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 hover:border-border-strong
+        ${error ? 'border-red-500/50' : ''} 
         ${props.className || ''}`} 
     />
-    {error && <p className="mt-1.5 text-[10px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1">
-      <span className="w-1 h-1 bg-rose-500 rounded-full"></span> {error}
+    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1">
+      <AlertCircle size={10} /> {error}
     </p>}
   </div>
 );
 
+// --- SYSTEM SELECT ---
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   error?: string;
 }
@@ -128,56 +133,214 @@ export const Select: React.FC<SelectProps> = ({ error, ...props }) => (
   <div className="w-full relative">
     <select 
       {...props} 
-      className={`w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm transition-all duration-200 outline-none appearance-none cursor-pointer
-        focus:border-primary-500 focus:ring-4 focus:ring-primary-500/10 hover:border-primary-300 text-slate-700 shadow-sm
-        ${error ? 'border-rose-300' : ''} 
+      className={`w-full px-3 py-2.5 bg-surface-highlight border border-border rounded-lg text-sm text-text-primary appearance-none cursor-pointer transition-all duration-200 outline-none
+        focus:border-primary-500/50 focus:ring-1 focus:ring-primary-500/20 hover:border-border-strong
+        ${error ? 'border-red-500/50' : ''} 
         ${props.className || ''}`} 
     />
-    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-      <svg width="10" height="6" viewBox="0 0 10 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 1L5 5L9 1"></path></svg>
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
+      <ChevronDown size={14} />
     </div>
-    {error && <p className="mt-1.5 text-[10px] font-bold text-rose-500 uppercase tracking-wide flex items-center gap-1">
-      <span className="w-1 h-1 bg-rose-500 rounded-full"></span> {error}
+    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1">
+      <AlertCircle size={10} /> {error}
     </p>}
   </div>
 );
 
+// --- SYSTEM CHECKBOX ---
 export const Checkbox: React.FC<{ label: string; checked: boolean; onChange: (val: boolean) => void }> = ({ label, checked, onChange }) => (
-  <label className="flex items-center space-x-3 cursor-pointer group select-none p-2 rounded-lg hover:bg-slate-50 transition-colors">
-    <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all duration-200 shadow-sm ${checked ? 'bg-primary-600 border-primary-600 scale-110' : 'bg-white border-slate-300 group-hover:border-primary-400'}`}>
-      {checked && <svg className="w-3.5 h-3.5 text-white animate-in zoom-in duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3.5"><path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+  <label className="flex items-center space-x-3 cursor-pointer group select-none py-1">
+    <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 
+      ${checked ? 'bg-primary-600 border-primary-600' : 'bg-transparent border-text-muted group-hover:border-text-secondary'}`}>
+      {checked && <Check size={10} className="text-white" />}
     </div>
-    <span className={`text-sm font-medium transition-colors ${checked ? 'text-primary-900 font-bold' : 'text-slate-600 group-hover:text-slate-900'}`}>{label}</span>
+    <span className={`text-sm transition-colors ${checked ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>{label}</span>
     <input type="checkbox" className="hidden" checked={checked} onChange={e => onChange(e.target.checked)} />
   </label>
 );
 
-export const Label: React.FC<{ children: React.ReactNode; required?: boolean }> = ({ children, required }) => (
-  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2 ml-1">
+// --- SYSTEM LABEL ---
+export const Label: React.FC<{ children: React.ReactNode; required?: boolean; className?: string }> = ({ children, required, className = '' }) => (
+  <label className={`block text-[10px] font-bold text-text-muted uppercase tracking-widest mb-1.5 ml-0.5 ${className}`}>
     {children}
-    {required && <span className="text-rose-500 ml-1" title="Required">*</span>}
+    {required && <span className="text-primary-500 ml-0.5">*</span>}
   </label>
 );
 
+// --- SYSTEM PAGINATION ---
+export const Pagination: React.FC<{
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  totalItems: number;
+  itemsPerPage: number;
+  onItemsPerPageChange: (size: number) => void;
+  className?: string;
+}> = ({ currentPage, totalPages, onPageChange, totalItems, itemsPerPage, onItemsPerPageChange, className = '' }) => {
+  if (totalItems === 0) return null;
+
+  return (
+    <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t border-border ${className}`}>
+      {/* Records Info & Size Selector */}
+      <div className="flex items-center gap-4 text-xs text-text-muted">
+        <span>
+          Showing <span className="text-text-primary font-bold">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{' '}
+          <span className="text-text-primary font-bold">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
+          <span className="text-text-primary font-bold">{totalItems}</span>
+        </span>
+        
+        <div className="h-4 w-px bg-border hidden sm:block"></div>
+        
+        <div className="flex items-center gap-2">
+          <span>Rows:</span>
+          <select 
+            value={itemsPerPage} 
+            onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+            className="bg-surface border border-border rounded px-2 py-1 text-text-secondary text-xs focus:ring-1 focus:ring-primary-500/50 outline-none cursor-pointer hover:border-border-strong"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Navigation Controls */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="p-1.5 rounded-lg border border-border bg-surface text-text-muted disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-highlight hover:text-text-primary transition-colors"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        
+        <div className="flex items-center gap-1">
+          {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+            let p = i + 1;
+            if (totalPages > 5) {
+               if (currentPage > 3) p = currentPage - 2 + i;
+               if (p > totalPages) p = totalPages - (4 - i);
+            }
+            return (
+              <button
+                key={p}
+                onClick={() => onPageChange(p)}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                  currentPage === p 
+                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20' 
+                    : 'text-text-muted hover:text-text-primary hover:bg-surface-highlight'
+                }`}
+              >
+                {p}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="p-1.5 rounded-lg border border-border bg-surface text-text-muted disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-highlight hover:text-text-primary transition-colors"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// --- SYSTEM NOTIFICATION CENTER ---
+export const NotificationCenter: React.FC<{ 
+  notifications: Notification[], 
+  onMarkRead: (id: string) => void,
+  onClearAll: () => void 
+}> = ({ notifications, onMarkRead, onClearAll }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative p-2 rounded-lg hover:bg-surface-highlight text-text-muted hover:text-text-primary transition-colors"
+      >
+        <Bell size={18} />
+        {unreadCount > 0 && (
+          <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <>
+          <div className="fixed inset-0 z-[80]" onClick={() => setIsOpen(false)}></div>
+          <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-surface border border-border rounded-xl shadow-2xl z-[90] flex flex-col max-h-[80vh] animate-scale-in origin-top-right">
+             <div className="p-4 border-b border-border flex items-center justify-between bg-surface-highlight/30">
+                <h3 className="text-xs font-bold text-text-primary uppercase tracking-widest">Notifications</h3>
+                {notifications.length > 0 && (
+                   <button onClick={onClearAll} className="text-[10px] text-text-muted hover:text-text-primary flex items-center gap-1 transition-colors">
+                      <Trash2 size={12} /> Clear History
+                   </button>
+                )}
+             </div>
+             
+             <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
+                {notifications.length === 0 ? (
+                   <div className="py-8 text-center text-text-muted text-xs">No notifications</div>
+                ) : (
+                   notifications.map(n => (
+                      <div 
+                         key={n.id} 
+                         onClick={() => onMarkRead(n.id)}
+                         className={`p-3 rounded-lg border transition-all cursor-pointer group ${
+                            n.read 
+                              ? 'bg-transparent border-transparent opacity-60 hover:opacity-100 hover:bg-surface-highlight' 
+                              : 'bg-surface-highlight border-border hover:border-border-strong'
+                         }`}
+                      >
+                         <div className="flex items-start gap-3">
+                            <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${!n.read ? 'bg-primary-500' : 'bg-text-muted'}`}></div>
+                            <div className="flex-1 min-w-0">
+                               <h4 className={`text-xs font-bold mb-0.5 truncate ${n.read ? 'text-text-secondary' : 'text-text-primary'}`}>{n.title}</h4>
+                               <p className="text-[11px] text-text-secondary leading-relaxed line-clamp-2">{n.message}</p>
+                               <span className="text-[10px] text-text-muted font-mono mt-2 block">{new Date(n.createdAt).toLocaleTimeString()}</span>
+                            </div>
+                         </div>
+                      </div>
+                   ))
+                )}
+             </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+// --- SYSTEM MODAL ---
 export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; size?: 'md' | 'lg' | 'xl' }> = ({ 
   isOpen, onClose, title, children, size = 'md'
 }) => {
   if (!isOpen) return null;
-  const sizes = { md: 'max-w-lg', lg: 'max-w-3xl', xl: 'max-w-5xl' };
+  const sizes = { md: 'max-w-lg', lg: 'max-w-2xl', xl: 'max-w-4xl' };
   
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-md overflow-hidden animate-in fade-in duration-200">
-      <div className={`glass-panel bg-white/95 md:rounded-3xl rounded-t-3xl shadow-2xl w-full ${sizes[size]} md:w-auto w-full md:max-w-[95vw] overflow-hidden animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-300 border border-white/50 ring-1 ring-black/5 max-h-[90vh] md:max-h-[calc(100vh-100px)] flex flex-col`}>
-        <div className="px-6 md:px-8 py-5 md:py-6 border-b border-slate-100/50 flex items-center justify-between bg-white/80 backdrop-blur-md z-10">
-          <h3 className="text-lg md:text-xl font-black text-slate-900 tracking-tight truncate pr-4">{title}</h3>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+      <div className={`bg-surface w-full ${sizes[size]} sm:rounded-2xl rounded-t-2xl overflow-hidden animate-slide-up sm:animate-scale-in flex flex-col h-[90vh] sm:h-auto sm:max-h-[90vh] border border-border shadow-2xl`}>
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-surface-highlight/30 shrink-0">
+          <h3 className="text-sm font-bold text-text-primary uppercase tracking-wide">{title}</h3>
           <button 
             onClick={onClose} 
-            className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100/50 text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors flex-shrink-0"
+            className="text-text-muted hover:text-text-primary transition-colors"
           >
-            &times;
+            <X size={18} />
           </button>
         </div>
-        <div className="p-6 md:p-8 overflow-y-auto custom-scrollbar flex-1">
+        <div className="p-6 overflow-y-auto custom-scrollbar flex-1 min-h-0 bg-surface">
           {children}
         </div>
       </div>
@@ -185,6 +348,7 @@ export const Modal: React.FC<{ isOpen: boolean; onClose: () => void; title: stri
   );
 };
 
+// --- SYSTEM DELETE MODAL ---
 export const DeleteModal: React.FC<{ 
   isOpen: boolean; 
   onClose: () => void; 
@@ -192,60 +356,23 @@ export const DeleteModal: React.FC<{
   title: string; 
   description: React.ReactNode;
 }> = ({ isOpen, onClose, onConfirm, title, description }) => {
-  const [confirmation, setConfirmation] = React.useState('');
-  
-  React.useEffect(() => {
-    if (isOpen) setConfirmation('');
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
-  const isConfirmed = confirmation.trim().toUpperCase() === 'DELETE';
-
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-rose-100/50 ring-4 ring-rose-50/50 scale-100 animate-in zoom-in-95 duration-200 relative">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-400 to-rose-600"></div>
-        <div className="px-8 py-8 flex flex-col items-center text-center">
-          <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mb-6 shadow-sm border border-rose-100">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in">
+      <div className="bg-surface border border-border rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-scale-in">
+        <div className="p-6 text-center">
+          <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20">
+            <AlertCircle size={24} />
           </div>
-          <h3 className="text-xl font-black text-slate-900 tracking-tight mb-2">{title}</h3>
-          <div className="text-sm text-slate-500 leading-relaxed font-medium mb-8">
+          <h3 className="text-lg font-bold text-text-primary mb-2">{title}</h3>
+          <div className="text-sm text-text-secondary leading-relaxed mb-6">
             {description}
           </div>
           
-          <div className="space-y-3 w-full bg-slate-50 p-5 rounded-2xl border border-slate-100 mb-8">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block text-left mb-2">
-              Security Confirmation
-            </label>
-            <input 
-              type="text" 
-              value={confirmation}
-              onChange={(e) => setConfirmation(e.target.value)}
-              className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-rose-500 outline-none font-bold text-slate-900 placeholder:text-slate-300 placeholder:font-bold text-center uppercase tracking-widest bg-white transition-colors"
-              placeholder="Type DELETE"
-              autoFocus
-            />
-          </div>
-
-          <div className="flex w-full gap-3">
-            <button 
-              onClick={onClose}
-              className="flex-1 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={() => { if (isConfirmed) onConfirm(); }}
-              disabled={!isConfirmed}
-              className={`flex-1 px-4 py-3 text-sm font-bold text-white rounded-xl transition-all shadow-lg
-                ${isConfirmed 
-                  ? 'bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 hover:shadow-rose-500/30 active:scale-95 cursor-pointer' 
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'}`}
-            >
-              Confirm
-            </button>
+          <div className="flex gap-3">
+            <Button onClick={onClose} variant="secondary" className="flex-1">Cancel</Button>
+            <Button onClick={onConfirm} variant="danger" className="flex-1">Confirm</Button>
           </div>
         </div>
       </div>
@@ -253,7 +380,7 @@ export const DeleteModal: React.FC<{
   );
 };
 
-// --- FILE UPLOAD COMPONENT ---
+// --- SYSTEM FILE UPLOAD ---
 interface FileUploadProps {
   onUpload: (attachment: Attachment) => void;
   maxSizeInKB?: number;
@@ -263,69 +390,28 @@ interface FileUploadProps {
 export const FileUpload: React.FC<FileUploadProps> = ({ 
   onUpload, 
   maxSizeInKB = 300,
-  allowedMimeTypes = [
-    'application/pdf', 
-    'application/msword', 
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-    'text/plain'
-  ]
+  allowedMimeTypes = ['application/pdf', 'application/msword', 'text/plain']
 }) => {
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const mimeToExt: Record<string, string> = {
-    'application/pdf': '.pdf',
-    'application/msword': '.doc',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-    'text/plain': '.txt',
-    'image/jpeg': '.jpg',
-    'image/png': '.png'
-  };
-
-  const getReadableExtensions = () => {
-    const exts = allowedMimeTypes.map(m => mimeToExt[m] || m.split('/')[1]);
-    return [...new Set(exts)].join(', ').toUpperCase();
-  };
-
-  const validateFile = (file: File): string | null => {
-    if (!allowedMimeTypes.includes(file.type)) {
-      return `Invalid type. Allowed: ${getReadableExtensions()}`;
-    }
-    if (file.size > maxSizeInKB * 1024) {
-      return `Too large. Limit: ${maxSizeInKB}KB.`;
-    }
-    return null;
-  };
-
   const processFile = (file: File) => {
     setError(null);
-    const validationError = validateFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-
     setIsProcessing(true);
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       if (dataUrl) {
-        const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const attachment: Attachment = {
+        onUpload({
           id: crypto.randomUUID(),
-          name: sanitizedName,
+          name: file.name,
           type: file.type,
           size: file.size,
           data: dataUrl,
           uploadedAt: Date.now()
-        };
-        onUpload(attachment);
+        });
       }
-      setIsProcessing(false);
-    };
-    reader.onerror = () => {
-      setError("Read failed.");
       setIsProcessing(false);
     };
     reader.readAsDataURL(file);
@@ -342,17 +428,15 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processFile(e.dataTransfer.files[0]);
-    }
+    if (e.dataTransfer.files?.[0]) processFile(e.dataTransfer.files[0]);
   }, []);
 
   return (
     <div className="w-full">
       <div 
-        className={`relative group w-full h-32 rounded-3xl border-2 transition-all duration-300 flex flex-col items-center justify-center text-center cursor-pointer overflow-hidden
-          ${dragActive ? 'border-primary-500 bg-primary-50/50 scale-[1.01] shadow-lg' : 'border-slate-200 border-dashed hover:border-primary-400 hover:bg-slate-50 bg-slate-50/30'}
-          ${error ? 'border-rose-300 bg-rose-50/10' : ''}`}
+        className={`relative group w-full h-24 rounded-xl border border-dashed transition-all duration-200 flex flex-col items-center justify-center text-center cursor-pointer
+          ${dragActive ? 'border-primary-500 bg-primary-500/10' : 'border-border-strong hover:border-text-muted hover:bg-surface-highlight'}
+          ${error ? 'border-red-500/50 bg-red-500/5' : ''}`}
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
@@ -362,34 +446,24 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           type="file" 
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
           onChange={(e) => { if(e.target.files?.[0]) processFile(e.target.files[0]); }}
-          accept={allowedMimeTypes.join(',')}
-          disabled={isProcessing}
         />
         
         {isProcessing ? (
-           <div className="flex flex-col items-center text-primary-600">
-             <div className="w-8 h-8 border-2 border-primary-600 border-t-transparent rounded-full animate-spin mb-2"></div>
-             <p className="text-[10px] font-bold uppercase tracking-widest">Encrypting...</p>
+           <div className="flex items-center text-primary-400 gap-2">
+             <div className="w-4 h-4 border-2 border-primary-400 border-t-transparent rounded-full animate-spin"></div>
+             <span className="text-xs font-bold uppercase tracking-wide">Processing</span>
            </div>
         ) : (
-           <>
-            <div className={`p-3 rounded-xl mb-2 transition-all duration-300 ${dragActive ? 'bg-primary-600 text-white shadow-lg' : 'bg-white text-slate-400 shadow-sm group-hover:scale-110 group-hover:text-primary-600'}`}>
+           <div className="flex items-center gap-3 text-text-muted group-hover:text-text-secondary transition-colors">
               <UploadCloud size={20} />
-            </div>
-            <p className="text-sm font-bold text-slate-700">
-              Drop file or <span className="text-primary-600 hover:underline">browse</span>
-            </p>
-            <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-wide opacity-70 group-hover:opacity-100 transition-opacity">
-              {getReadableExtensions()}
-            </p>
-           </>
+              <span className="text-xs font-medium">Drop or Click to Upload</span>
+           </div>
         )}
       </div>
       
       {error && (
-        <div className="mt-2 flex items-center text-[10px] font-bold text-rose-500 uppercase tracking-wide animate-in fade-in slide-in-from-top-1 bg-rose-50 px-3 py-2 rounded-lg border border-rose-100">
-          <AlertCircle size={12} className="mr-2" />
-          {error}
+        <div className="mt-2 text-[10px] font-bold text-red-400 flex items-center gap-1.5 animate-fade-in">
+          <AlertCircle size={10} /> {error}
         </div>
       )}
     </div>

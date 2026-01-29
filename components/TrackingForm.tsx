@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { TrackingRecord, ApplicationStatus, EmailType, Contact, Attachment } from '../types';
 import { Button, Input, Label, Select, Checkbox, Textarea, FileUpload } from './Shared';
 import { storage } from '../services/storage';
-import { Cloud, CloudOff, RefreshCw, Link as LinkIcon, Globe, Mail, Briefcase, Users, Repeat, Loader2 } from 'lucide-react';
+import { Cloud, CloudOff, RefreshCw, Link as LinkIcon, Globe, Mail, Briefcase, Users, Repeat, Loader2, Bell } from 'lucide-react';
 
 interface Props {
   initialData: Partial<TrackingRecord>;
@@ -44,8 +44,13 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
     referralRelationship: '',
     recruiterType: '',
     screeningDate: '',
+    nextFollowUpDate: '',
     ...initialData
   });
+
+  // Reminder State
+  const [setReminder, setSetReminder] = useState(false);
+  const [reminderTime, setReminderTime] = useState('09:00');
 
   const [addToNetwork, setAddToNetwork] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -74,7 +79,7 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
         setSaveStatus('saved');
       } catch (e) {
         console.warn("Auto-save failed silently", e);
-        setSaveStatus('idle'); // revert to idle if failed, or handle error state
+        setSaveStatus('idle');
       }
     }, 1500);
     return () => clearTimeout(timer);
@@ -140,6 +145,10 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
       newErrors.replyDate = "Reply date required if received";
     }
 
+    if (setReminder && !formData.nextFollowUpDate) {
+       newErrors.nextFollowUpDate = "Date required for reminder";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -191,8 +200,18 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
           }
       }
 
+      // Handle Reminder Scheduling
+      if (setReminder && finalData.nextFollowUpDate) {
+         // Logic handled in parent
+      }
+      
       storage.clearDraft(draftKey);
-      onSave(finalData);
+      
+      onSave({
+          ...finalData,
+          // @ts-ignore
+          _reminderConfig: setReminder ? { date: finalData.nextFollowUpDate, time: reminderTime } : undefined
+      });
     }
   };
 
@@ -203,9 +222,9 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
   };
 
   const renderContactPicker = (label: string = "Target Contact") => (
-    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+    <div className="flex items-center justify-between pb-2 border-b border-border mb-4">
         <Label required>{label}</Label>
-        <Select className="!w-auto !py-1 !text-xs" value={formData.contactId || ''} onChange={e => handleContactLink(e.target.value)}>
+        <Select className="!w-auto !py-1 !text-xs !bg-surface-highlight !border-border" value={formData.contactId || ''} onChange={e => handleContactLink(e.target.value)}>
             <option value="">+ New / Unlinked</option>
             {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
@@ -227,16 +246,16 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
   return (
     <div className="space-y-6 relative">
       {/* Auto-Save & Status Indicator - Floating Top Right */}
-      <div className="flex justify-between items-center bg-slate-50 rounded-lg p-2 px-3 border border-slate-100">
-        <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Editor Mode: Active</span>
+      <div className="flex justify-between items-center bg-surface-highlight rounded-lg p-2 px-3 border border-border">
+        <span className="text-[10px] uppercase font-bold text-text-muted tracking-wider">Editor Mode: Active</span>
         <div className="flex items-center gap-2">
             {saveStatus === 'saving' && (
-                <span className="flex items-center text-[10px] text-primary-500 font-bold uppercase tracking-wider">
+                <span className="flex items-center text-[10px] text-primary-400 font-bold uppercase tracking-wider">
                     <Loader2 size={10} className="mr-1.5 animate-spin" /> Saving...
                 </span>
             )}
             {saveStatus === 'saved' && (
-                <span className="flex items-center text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                <span className="flex items-center text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
                     <Cloud size={10} className="mr-1.5" /> Draft Saved
                 </span>
             )}
@@ -249,14 +268,14 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
       </div>
 
       {hasDraft && (
-        <div className="bg-gradient-to-r from-indigo-50 to-white border border-indigo-100 p-4 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm">
+        <div className="bg-primary-500/10 border border-primary-500/20 p-4 rounded-xl flex items-center justify-between animate-in fade-in slide-in-from-top-2 shadow-sm">
           <div className="flex items-center space-x-3">
-            <div className="bg-indigo-100 p-1.5 rounded-lg text-indigo-600">
+            <div className="bg-primary-500/20 p-1.5 rounded-lg text-primary-300">
                 <RefreshCw size={14} className={saveStatus === 'saving' ? 'animate-spin' : ''} />
             </div>
             <div>
-                <p className="text-xs font-bold text-indigo-900">Previous draft available</p>
-                <p className="text-[10px] text-indigo-600/80">Recover unsaved changes?</p>
+                <p className="text-xs font-bold text-primary-200">Previous draft available</p>
+                <p className="text-[10px] text-primary-400/80">Recover unsaved changes?</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -267,7 +286,7 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
       )}
 
       {/* CONTEXT TABS */}
-      <div className="flex p-1 bg-slate-100 rounded-xl overflow-x-auto scrollbar-hide">
+      <div className="flex p-1 bg-surface-highlight rounded-xl overflow-x-auto scrollbar-hide border border-border">
         {contexts.map(ctx => {
             const Icon = ctx.icon;
             const isActive = formData.emailType === ctx.id;
@@ -276,7 +295,8 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
                     key={ctx.id}
                     type="button"
                     onClick={() => handleContextChange(ctx.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${isActive ? 'bg-white text-primary-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap 
+                      ${isActive ? 'bg-surface text-text-primary shadow-sm border border-border' : 'text-text-muted hover:text-text-secondary hover:bg-surface-highlight/50'}`}
                 >
                     <Icon size={14} />
                     {ctx.label}
@@ -300,7 +320,8 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
         </div>
 
         {/* DYNAMIC CONTEXT FIELDS */}
-        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+        <div className="bg-surface p-6 rounded-2xl border border-border space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {/* ... Existing context specific fields ... */}
             {formData.emailType === EmailType.DIRECT_APPLICATION && (
                 <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -401,7 +422,6 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
                    <div><Label>Screening Date</Label><Input type="date" value={formData.screeningDate} onChange={e => handleChange('screeningDate', e.target.value)} /></div>
                 </>
             )}
-
         </div>
 
         {/* SHARED: STATUS & DATES */}
@@ -413,7 +433,23 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
                      {Object.values(ApplicationStatus).map(s => <option key={s} value={s}>{s}</option>)}
                  </Select>
              </div>
-             <div><Label>Next Follow-Up</Label><Input type="date" value={formData.nextFollowUpDate} onChange={e => handleChange('nextFollowUpDate', e.target.value)} /></div>
+             <div>
+                 <Label>Next Follow-Up</Label>
+                 <Input type="date" value={formData.nextFollowUpDate} onChange={e => handleChange('nextFollowUpDate', e.target.value)} error={errors.nextFollowUpDate} />
+                 {formData.nextFollowUpDate && (
+                    <div className="mt-2 flex items-center gap-2">
+                       <Checkbox label="Set Reminder" checked={setReminder} onChange={setSetReminder} />
+                       {setReminder && (
+                           <input 
+                              type="time" 
+                              value={reminderTime} 
+                              onChange={e => setReminderTime(e.target.value)}
+                              className="bg-surface border border-border-strong rounded px-2 py-1 text-xs text-text-primary outline-none focus:border-primary-500" 
+                           />
+                       )}
+                    </div>
+                 )}
+             </div>
         </div>
 
         <div>
@@ -421,17 +457,17 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
             <Textarea rows={4} placeholder="Context, pitch used, or key details..." value={formData.valuePitchSummary} onChange={e => handleChange('valuePitchSummary', e.target.value)} />
         </div>
 
-        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+        <div className="bg-surface-highlight/30 p-4 rounded-xl border border-border">
              <Label>Attachments</Label>
              <div className="mt-2"><FileUpload onUpload={file => setFormData(p => ({...p, attachments: [...(p.attachments||[]), file]}))} /></div>
              <div className="mt-2 space-y-1">
                  {formData.attachments?.map(f => (
-                     <div key={f.id} className="flex justify-between text-xs p-2 bg-white border rounded"><span className="truncate">{f.name}</span><button type="button" onClick={() => setFormData(p => ({...p, attachments: p.attachments?.filter(a => a.id !== f.id)}))} className="text-rose-500 font-bold">X</button></div>
+                     <div key={f.id} className="flex justify-between text-xs p-2 bg-surface border border-border rounded text-text-secondary"><span className="truncate">{f.name}</span><button type="button" onClick={() => setFormData(p => ({...p, attachments: p.attachments?.filter(a => a.id !== f.id)}))} className="text-red-400 font-bold hover:text-red-300">X</button></div>
                  ))}
              </div>
         </div>
 
-        <div className="border-t border-slate-100 pt-6">
+        <div className="border-t border-border pt-6">
             <Checkbox label="Response Received" checked={formData.replyReceived || false} onChange={v => handleChange('replyReceived', v)} />
             {formData.replyReceived && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 animate-in fade-in">

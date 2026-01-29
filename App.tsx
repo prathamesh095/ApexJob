@@ -5,16 +5,16 @@ import {
   Users, FileText, Copy, ChevronRight, Eye, Settings, PlusCircle,
   UserPlus, History, Upload, LayoutList, LayoutGrid, CheckCircle,
   AlertTriangle, Filter, X, Target, Sparkles, Calendar, Bell, BrainCircuit,
-  Clock, ArrowRight, ChevronLeft, Menu
+  Clock, ArrowRight, ChevronLeft, Menu, Command, DownloadCloud, AlertCircle, Loader2, Edit3
 } from 'lucide-react';
 import { storage } from './services/storage';
 import { auth } from './services/auth';
 import { 
   TrackingRecord, ExecutionLog, ApplicationStatus, User,
-  OutreachTemplate, EmailType, Contact 
+  OutreachTemplate, EmailType, Contact, Notification, Reminder
 } from './types';
-import { STATUS_COLORS } from './constants';
-import { Button, Card, Badge, Input, Modal, Label, Textarea, DeleteModal, Select } from './components/Shared';
+import { STATUS_STYLES } from './constants';
+import { Button, Card, Badge, Input, Modal, Label, Textarea, DeleteModal, Select, Checkbox, Pagination, NotificationCenter } from './components/Shared';
 import Dashboard from './components/Dashboard';
 import { LoginForm } from './components/LoginForm';
 import { TrackingForm } from './components/TrackingForm';
@@ -29,31 +29,31 @@ const App: React.FC = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [templates, setTemplates] = useState<OutreachTemplate[]>([]);
   const [logs, setLogs] = useState<ExecutionLog[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatuses, setFilterStatuses] = useState<ApplicationStatus[]>([]);
-  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
-  const [showFilters, setShowFilters] = useState(false);
-
-  // Pagination State
+  
+  // PAGINATION STATE
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 12;
+  const [itemsPerPage, setItemsPerPage] = useState(12);
 
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false); // Mobile Menu State
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-  
-  // Import State
+
+  // IMPORT STATE
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
   const [importMode, setImportMode] = useState<'RECORDS' | 'CONTACTS'>('RECORDS');
-  
-  // Notification State
+  const [importStage, setImportStage] = useState<'INPUT' | 'PREVIEW'>('INPUT');
+  const [importPreview, setImportPreview] = useState<{valid: any[], invalid: any[], all: any[]}>({ valid: [], invalid: [], all: [] });
+
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  
-  // AI Prep Modal
   const [isPrepModalOpen, setIsPrepModalOpen] = useState(false);
   const [prepData, setPrepData] = useState<InterviewPrep | null>(null);
   const [isPrepping, setIsPrepping] = useState(false);
@@ -64,21 +64,23 @@ const App: React.FC = () => {
   const [editingTemplate, setEditingTemplate] = useState<Partial<OutreachTemplate> | null>(null);
   const [editingContact, setEditingContact] = useState<Partial<Contact> | null>(null);
   
-  const [outreachDraft, setOutreachDraft] = useState('');
-  const [isDraftingOutreach, setIsDraftingOutreach] = useState(false);
-
-  const [deleteConfig, setDeleteConfig] = useState<{
-    isOpen: boolean;
-    type: 'RECORD' | 'CONTACT' | 'TEMPLATE' | null;
-    id: string | null;
-    meta?: any;
-  }>({ isOpen: false, type: null, id: null });
-
+  const [deleteConfig, setDeleteConfig] = useState<{ isOpen: boolean; type: 'RECORD' | 'CONTACT' | 'TEMPLATE' | null; id: string | null; meta?: any }>({ isOpen: false, type: null, id: null });
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Close mobile menu on route change or resize
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [activeTab]);
+
+  // Reset pagination on filter/search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatuses, activeTab]);
+
+  // TOAST AUTO-DISMISS
   useEffect(() => {
     if (notification) {
-      const timer = setTimeout(() => setNotification(null), 4000);
+      const timer = setTimeout(() => setNotification(null), 5000); // Increased duration for readability
       return () => clearTimeout(timer);
     }
   }, [notification]);
@@ -94,16 +96,6 @@ const App: React.FC = () => {
     setRecords([]);
   }, []);
 
-  const handleOperationError = useCallback((err: any) => {
-    const msg = err?.message || 'Unknown error occurred';
-    if (msg.includes('UNAUTHORIZED')) {
-      showToast("Session expired. Please sign in again.", 'error');
-      handleLogout();
-    } else {
-      showToast(msg, 'error');
-    }
-  }, [handleLogout]);
-
   const refreshData = useCallback(() => {
     if (!auth.isAuthenticated()) {
       if (user) handleLogout();
@@ -113,777 +105,696 @@ const App: React.FC = () => {
     setContacts([...storage.getContacts()]);
     setTemplates([...storage.getTemplates()]);
     setLogs([...storage.getLogs()]);
+    setNotifications([...storage.getNotifications()]);
   }, [user, handleLogout]);
 
   useEffect(() => {
-    if (user) {
-      refreshData();
-    }
+    if (user) refreshData();
   }, [refreshData, user]);
 
-  // Reset pagination when filters or tab change
+  // SCHEDULER POLLING (Client-Side Fallback)
   useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, searchQuery, filterStatuses, dateRange]);
+     if (!user) return;
+     const interval = setInterval(() => {
+         const now = Date.now();
+         const reminders = storage.getReminders();
+         const pending = reminders.filter(r => r.status === 'PENDING' && r.dueAt <= now);
+         
+         if (pending.length > 0) {
+             pending.forEach(r => {
+                 storage.addNotification({
+                     type: 'REMINDER',
+                     title: 'Follow-Up Due',
+                     message: `Reminder for ${r.title}`,
+                     linkToId: r.recordId
+                 });
+                 storage.updateReminderStatus(r.id, 'FIRED');
+             });
+             refreshData();
+         }
+     }, 30000); // Check every 30s
+     return () => clearInterval(interval);
+  }, [user, refreshData]);
 
-  // --- Reminders Logic ---
   const reminders = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     return records.filter(r => {
-      // Logic: Status allows follow-up AND date is passed/today AND not yet sent
       const isActive = [ApplicationStatus.SENT, ApplicationStatus.INTERVIEWING].includes(r.status);
       const isDue = r.nextFollowUpDate && r.nextFollowUpDate <= today && !r.followUpSent;
       return isActive && isDue;
     }).sort((a, b) => (a.nextFollowUpDate || '').localeCompare(b.nextFollowUpDate || ''));
   }, [records]);
 
-  const handleMarkFollowUpSent = (record: TrackingRecord) => {
-    try {
-      storage.saveRecord({ 
-        ...record, 
-        followUpSent: true,
-        // Optionally append a note
-        notes: (record.notes || '') + `\n[System] Follow-up marked sent on ${new Date().toLocaleDateString()}`
-      });
-      refreshData();
-      showToast("Follow-up status updated.");
-    } catch (err: any) {
-      handleOperationError(err);
-    }
-  };
-  // -----------------------
-
-  const handleSaveRecord = (data: Partial<TrackingRecord>) => {
-    try {
-      storage.saveRecord(data);
-      setIsModalOpen(false);
-      setEditingRecord(null);
-      refreshData();
-      showToast("Pipeline record successfully committed.");
-    } catch (err: any) {
-      handleOperationError(err);
-    }
-  };
-
-  const handleSaveContact = (data: Partial<Contact>) => {
-    try {
-      storage.saveContact(data);
-      setIsContactModalOpen(false);
-      setEditingContact(null);
-      refreshData();
-      showToast("Contact node updated.");
-    } catch (err: any) {
-      handleOperationError(err);
-    }
-  };
-
-  const handleDeleteRecord = (id: string) => {
-    const rec = records.find(r => r.id === id);
-    setDeleteConfig({
-      isOpen: true,
-      type: 'RECORD',
-      id,
-      meta: { name: rec ? `${rec.roleTitle} at ${rec.company}` : 'Unknown Record' }
-    });
-  };
-
-  const handleDeleteContact = (id: string) => {
-    const contact = contacts.find(c => c.id === id);
-    setDeleteConfig({
-      isOpen: true,
-      type: 'CONTACT',
-      id,
-      meta: { name: contact?.name || 'Unknown Contact' }
-    });
-  };
-
-  const handleDeleteTemplate = (id: string) => {
-    const t = templates.find(temp => temp.id === id);
-    setDeleteConfig({
-      isOpen: true,
-      type: 'TEMPLATE',
-      id,
-      meta: { name: t?.title || 'Unknown Template' }
-    });
-  };
-
-  const executeDelete = () => {
-    const { type, id } = deleteConfig;
-    if (!type || !id) return;
-    try {
-      if (type === 'RECORD') {
-        storage.deleteRecord(id);
-        if (viewingRecord?.id === id) {
-          setViewingRecord(null);
-          setIsViewModalOpen(false);
-        }
-        if (editingRecord?.id === id) {
-          setEditingRecord(null);
-          setIsModalOpen(false);
-        }
-        showToast("Record purged.", 'success');
-      } else if (type === 'CONTACT') {
-        storage.deleteContact(id);
-        if (editingContact?.id === id) { setEditingContact(null); setIsContactModalOpen(false); }
-        showToast("Contact deleted.", 'success');
-      } else if (type === 'TEMPLATE') {
-        storage.deleteTemplate(id);
-        if (editingTemplate?.id === id) { setEditingTemplate(null); setIsTemplateModalOpen(false); }
-        showToast("Template deleted.", 'success');
+  // Actions
+  const handleSaveRecord = (data: Partial<TrackingRecord> & { _reminderConfig?: { date: string, time: string } }) => { 
+      const savedRecord = storage.saveRecord(data);
+      
+      if (data._reminderConfig && savedRecord.id) {
+         const { date, time } = data._reminderConfig;
+         const dueAt = new Date(`${date}T${time || '09:00'}`).getTime();
+         if (!isNaN(dueAt)) {
+             storage.saveReminder({
+                 recordId: savedRecord.id,
+                 title: `${savedRecord.roleTitle} at ${savedRecord.company}`,
+                 dueAt
+             });
+             showToast("Record saved & reminder scheduled.");
+         } else {
+             showToast("Record saved but reminder time invalid.", "error");
+         }
+      } else {
+         showToast("Record committed successfully.");
       }
-      refreshData();
-    } catch (err: any) {
-      handleOperationError(err);
-    } finally {
-      setDeleteConfig({ isOpen: false, type: null, id: null });
-    }
-  };
 
-  const handleSaveTemplate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingTemplate?.title || !editingTemplate?.content) return;
-    try {
-      storage.saveTemplate(editingTemplate);
-      setIsTemplateModalOpen(false);
-      setEditingTemplate(null);
-      refreshData();
-      showToast("Template saved.");
-    } catch (err: any) {
-      handleOperationError(err);
-    }
-  };
-
-  const handleAIDraft = async (rec: TrackingRecord) => {
-    setIsDraftingOutreach(true);
-    const draft = await generateOutreachDraft({
-      company: rec.company,
-      role: rec.roleTitle,
-      contactName: rec.name,
-      tone: "Professional yet enthusiastic"
-    });
-    setOutreachDraft(draft);
-    setIsDraftingOutreach(false);
-    showToast("Intelligence draft generated.", 'success');
+      setIsModalOpen(false); 
+      setEditingRecord(null); 
+      refreshData(); 
   };
   
-  const handlePrep = async (rec: TrackingRecord) => {
-    setIsPrepModalOpen(true);
-    setPrepData(null);
-    setRevealedAnswers([]);
-    setIsPrepping(true);
-    const data = await generateInterviewQuestions(rec.roleTitle, rec.company);
-    setPrepData(data);
-    setIsPrepping(false);
+  const handleSaveContact = (data: Partial<Contact>) => { storage.saveContact(data); setIsContactModalOpen(false); setEditingContact(null); refreshData(); showToast("Contact saved successfully."); };
+  const handleDeleteRecord = (id: string) => { const rec = records.find(r => r.id === id); setDeleteConfig({ isOpen: true, type: 'RECORD', id, meta: { name: rec ? `${rec.roleTitle} at ${rec.company}` : 'Record' } }); };
+  const handleDeleteContact = (id: string) => { const contact = contacts.find(c => c.id === id); setDeleteConfig({ isOpen: true, type: 'CONTACT', id, meta: { name: contact?.name || 'Contact' } }); };
+  const handleDeleteTemplate = (id: string) => { const t = templates.find(temp => temp.id === id); setDeleteConfig({ isOpen: true, type: 'TEMPLATE', id, meta: { name: t?.title || 'Template' } }); };
+  
+  const executeDelete = () => { 
+    try {
+      if (deleteConfig.type === 'RECORD') { storage.deleteRecord(deleteConfig.id!); if (viewingRecord?.id === deleteConfig.id) { setViewingRecord(null); setIsViewModalOpen(false); } }
+      else if (deleteConfig.type === 'CONTACT') storage.deleteContact(deleteConfig.id!);
+      else if (deleteConfig.type === 'TEMPLATE') storage.deleteTemplate(deleteConfig.id!);
+      
+      setDeleteConfig({ isOpen: false, type: null, id: null });
+      refreshData();
+      showToast("Item deleted permanently.", "success");
+    } catch (e: any) {
+      showToast(e.message || "Delete failed", "error");
+    }
   };
 
-  const handleImport = () => {
+  const handleSaveTemplate = (e: React.FormEvent) => { e.preventDefault(); storage.saveTemplate(editingTemplate!); setIsTemplateModalOpen(false); setEditingTemplate(null); refreshData(); showToast("Template saved."); };
+  
+  // Notification Actions
+  const handleMarkRead = (id: string) => { storage.markNotificationRead(id); refreshData(); };
+  const handleClearNotifications = () => { storage.clearNotifications(); refreshData(); };
+
+  // --- IMPORT SYSTEM ---
+  const parseCSV = (text: string) => {
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let inQuote = false;
+    let currentCell = '';
+    
+    // Normalize newlines
+    const cleanedText = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+
+    for (let i = 0; i < cleanedText.length; i++) {
+      const char = cleanedText[i];
+      const nextChar = cleanedText[i + 1];
+
+      if (char === '"') {
+        if (inQuote && nextChar === '"') {
+          currentCell += '"'; // Escaped quote
+          i++; 
+        } else {
+          inQuote = !inQuote;
+        }
+      } else if (char === ',' && !inQuote) {
+        currentRow.push(currentCell.trim());
+        currentCell = '';
+      } else if (char === '\n' && !inQuote) {
+        if (currentCell || currentRow.length > 0) {
+          currentRow.push(currentCell.trim());
+          rows.push(currentRow);
+          currentRow = [];
+          currentCell = '';
+        }
+      } else {
+        currentCell += char;
+      }
+    }
+    // Push last row if exists
+    if (currentCell || currentRow.length > 0) {
+      currentRow.push(currentCell.trim());
+      rows.push(currentRow);
+    }
+    return rows;
+  };
+
+  const handleAnalyzeImport = () => {
     if (!importText.trim()) return;
     try {
-      // Improved CSV Parser
-      const rows = importText.split('\n')
-        .map(l => l.trim())
-        .filter(l => l.length > 0);
+      const rows = parseCSV(importText);
+      if (rows.length < 2) throw new Error("Invalid CSV: No data rows found. Ensure headers are present.");
       
-      // Auto-detect header row
-      let dataRows = rows;
-      if (rows.length > 0 && (rows[0].toLowerCase().includes('company') || rows[0].toLowerCase().includes('email'))) {
-          dataRows = rows.slice(1);
+      const headers = rows[0].map(h => h.toLowerCase().replace(/^"|"$/g, '').trim());
+      
+      const data = rows.slice(1).map((row, idx) => {
+        const obj = headers.reduce((acc, header, index) => {
+          let key = header;
+          if (header.includes('company')) key = 'company';
+          if (header.includes('role') || header.includes('title')) key = 'roleTitle';
+          if (header.includes('name')) key = 'name';
+          if (header.includes('email')) key = 'email';
+          acc[key] = row[index] || '';
+          return acc;
+        }, {} as any);
+        obj._originalIdx = idx + 1; // 1-based index (skipping header)
+        return obj;
+      });
+      
+      // Separate Valid / Invalid
+      const valid: any[] = [];
+      const invalid: any[] = [];
+
+      data.forEach(d => {
+        let isValid = false;
+        if (importMode === 'RECORDS') {
+           isValid = !!(d.company && d.roleTitle);
+        } else {
+           isValid = !!(d.name);
+        }
+
+        if (isValid) valid.push(d);
+        else invalid.push(d);
+      });
+
+      setImportPreview({ valid, invalid, all: data });
+      setImportStage('PREVIEW');
+
+    } catch (e: any) {
+      showToast(e.message || "Parse failed.", "error");
+    }
+  };
+
+  const handleCommitImport = () => {
+    try {
+      if (importPreview.valid.length === 0) {
+        showToast("No valid records to import.", "error");
+        return;
       }
 
       if (importMode === 'RECORDS') {
-        const newRecords: Partial<TrackingRecord>[] = [];
-        dataRows.forEach(line => {
-          // Handle basic CSV splitting, removing quotes
-          const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.trim().replace(/^"|"$/g, ''));
-          if (parts.length >= 2) {
-            newRecords.push({
-              company: parts[0] || 'Unknown', 
-              roleTitle: parts[1] || 'Imported Role', 
-              name: parts[2] || 'Imported Contact',
-              emailAddress: parts[3] || '', 
-              status: Object.values(ApplicationStatus).includes(parts[4] as ApplicationStatus) ? (parts[4] as ApplicationStatus) : ApplicationStatus.SENT
-            });
-          }
-        });
-        if (newRecords.length > 0) {
-          storage.saveRecordsBatch(newRecords);
-          showToast(`Imported ${newRecords.length} records.`);
-        } else {
-          showToast("No valid records found in CSV.", 'error');
-        }
+        storage.saveRecordsBatch(importPreview.valid);
       } else {
-        // CONTACTS Import
-        const newContacts: Partial<Contact>[] = [];
-        dataRows.forEach(line => {
-           const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.trim().replace(/^"|"$/g, ''));
-           if (parts.length >= 2) {
-             newContacts.push({
-               name: parts[0] || 'Imported Name', 
-               email: parts[1] || '', 
-               company: parts[2] || 'Unknown',
-               linkedInOrSource: parts[3] || '', 
-               notes: parts[4] || 'Imported via CSV'
-             });
-           }
-        });
-        if (newContacts.length > 0) {
-          storage.saveContactsBatch(newContacts);
-          showToast(`Imported ${newContacts.length} contacts.`);
-        } else {
-           showToast("No valid contacts found in CSV.", 'error');
-        }
+        storage.saveContactsBatch(importPreview.valid);
       }
-
-      refreshData();
+      
       setIsImportModalOpen(false);
       setImportText('');
+      setImportStage('INPUT');
       
-    } catch (err: any) {
-      handleOperationError(err);
+      const summaryMsg = `Import Success: ${importPreview.valid.length} items added. ${importPreview.invalid.length} skipped.`;
+      setImportPreview({ valid: [], invalid: [], all: [] });
+      refreshData();
+      showToast(summaryMsg, "success");
+    } catch (e: any) {
+      showToast(e.message || "Import commit failed.", "error");
     }
   };
 
-  const toggleStatusFilter = (status: ApplicationStatus) => {
-    setFilterStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]);
+  const handleCancelImport = () => {
+    setImportStage('INPUT');
+    setImportPreview({ valid: [], invalid: [], all: [] });
+    setImportText('');
+    setIsImportModalOpen(false);
   };
 
-  // Filtered Logic
+  // ---
+
+  const handlePrep = async (rec: TrackingRecord) => { setIsPrepModalOpen(true); setIsPrepping(true); const data = await generateInterviewQuestions(rec.roleTitle, rec.company); setPrepData(data); setIsPrepping(false); };
+
   const filteredRecords = useMemo(() => {
     let result = records;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(r => 
-        r.company.toLowerCase().includes(q) || r.roleTitle.toLowerCase().includes(q) || 
-        r.name.toLowerCase().includes(q) || r.emailAddress.toLowerCase().includes(q) ||
-        (r.notes && r.notes.toLowerCase().includes(q))
-      );
+      result = result.filter(r => r.company.toLowerCase().includes(q) || r.roleTitle.toLowerCase().includes(q));
     }
     if (filterStatuses.length > 0) result = result.filter(r => filterStatuses.includes(r.status));
-    if (dateRange.start) result = result.filter(r => r.dateSent >= dateRange.start);
-    if (dateRange.end) result = result.filter(r => r.dateSent <= dateRange.end);
     return result;
-  }, [records, searchQuery, filterStatuses, dateRange]);
+  }, [records, searchQuery, filterStatuses]);
 
   const filteredContacts = useMemo(() => {
     if (!searchQuery.trim()) return contacts;
     const q = searchQuery.toLowerCase();
-    return contacts.filter(c => 
-      c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || 
-      c.company.toLowerCase().includes(q) || (c.notes && c.notes.toLowerCase().includes(q))
-    );
+    return contacts.filter(c => c.name.toLowerCase().includes(q) || c.company.toLowerCase().includes(q));
   }, [contacts, searchQuery]);
 
-  // Pagination Logic
+  // PAGINATION LOGIC
   const paginatedRecords = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredRecords.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredRecords, currentPage]);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredRecords.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredRecords, currentPage, itemsPerPage]);
 
   const paginatedContacts = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredContacts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredContacts, currentPage]);
-
-  const totalRecordPages = Math.ceil(filteredRecords.length / ITEMS_PER_PAGE);
-  const totalContactPages = Math.ceil(filteredContacts.length / ITEMS_PER_PAGE);
-
-  const PaginationControls = ({ currentPage, totalPages, totalItems, label }: { currentPage: number, totalPages: number, totalItems: number, label: string }) => {
-    if (totalItems === 0) return null;
-    return (
-      <div className="flex items-center justify-between mt-6 bg-white p-3 rounded-2xl border border-slate-100 shadow-sm flex-wrap gap-2">
-        <span className="text-xs font-bold text-slate-400 pl-2">
-          Showing <span className="text-slate-900">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</span> to <span className="text-slate-900">{Math.min(currentPage * ITEMS_PER_PAGE, totalItems)}</span> of {totalItems} {label}
-        </span>
-        <div className="flex items-center gap-2">
-          <Button 
-            size="xs" 
-            variant="secondary" 
-            disabled={currentPage === 1} 
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-          >
-            <ChevronLeft size={14} className="mr-1" /> Prev
-          </Button>
-          <div className="text-xs font-bold text-slate-900 px-2">Page {currentPage} of {totalPages}</div>
-          <Button 
-            size="xs" 
-            variant="secondary" 
-            disabled={currentPage === totalPages} 
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-          >
-            Next <ChevronRight size={14} className="ml-1" />
-          </Button>
-        </div>
-      </div>
-    );
-  };
-
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredContacts.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredContacts, currentPage, itemsPerPage]);
+  
   if (!user) return <LoginForm onLogin={() => setUser(auth.getCurrentUser())} />;
 
   const navItems = [
-    { id: 'dashboard', label: 'Home', icon: <LayoutDashboard size={20} /> },
-    { id: 'applications', label: 'Pipeline', icon: <Briefcase size={20} /> },
-    { id: 'contacts', label: 'Network', icon: <Users size={20} /> },
-    { id: 'templates', label: 'Templates', icon: <FileText size={20} /> },
-    { id: 'audit', label: 'Logs', icon: <History size={20} /> },
+    { id: 'dashboard', label: 'Overview', icon: <LayoutDashboard size={18} /> },
+    { id: 'applications', label: 'Pipeline', icon: <Briefcase size={18} /> },
+    { id: 'contacts', label: 'Network', icon: <Users size={18} /> },
+    { id: 'templates', label: 'Library', icon: <FileText size={18} /> },
+    { id: 'audit', label: 'System Log', icon: <History size={18} /> },
   ];
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard': return <Dashboard applications={records} />;
-      case 'applications':
-        return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-              <div>
-                 <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Pipeline</h2>
-                 <p className="text-slate-500 text-sm font-medium">Manage your active applications</p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                 <div className="bg-white rounded-full p-1 border border-slate-200 shadow-sm flex items-center">
-                    <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutGrid size={18} /></button>
-                    <button onClick={() => setViewMode('table')} className={`p-2 rounded-full transition-all ${viewMode === 'table' ? 'bg-primary-50 text-primary-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}><LayoutList size={18} /></button>
-                 </div>
-                 <Button variant="secondary" onClick={() => { setImportMode('RECORDS'); setIsImportModalOpen(true); }} className="hidden sm:flex"><Upload size={16} className="mr-2" /> Import</Button>
-                 <Button onClick={() => { setEditingRecord({}); setIsModalOpen(true); }} variant="gradient" className="flex-1 md:flex-none"><PlusCircle size={18} className="mr-2" /> <span className="hidden sm:inline">New Application</span><span className="sm:hidden">New</span></Button>
-              </div>
-            </div>
-            {viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 gap-4">
-                {paginatedRecords.length === 0 ? (
-                   <div className="py-24 text-center bg-white/50 rounded-3xl border border-dashed border-slate-300">
-                     <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm"><Briefcase size={24} className="text-slate-300" /></div>
-                     <h3 className="text-base font-bold text-slate-900">No Records Found</h3>
-                     <p className="text-slate-500 text-xs mt-1">Initialize a new opportunity to get started.</p>
-                   </div>
-                ) : paginatedRecords.map(rec => (
-                  <Card key={rec.id} className="p-0 group overflow-hidden border-slate-200/60" hoverEffect>
-                    <div className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6 relative">
-                      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${rec.status === ApplicationStatus.OFFER ? 'bg-emerald-500' : rec.status === ApplicationStatus.REJECTED ? 'bg-rose-500' : 'bg-primary-500'}`}></div>
-                      <div className="flex-1 pl-3 md:pl-4 cursor-pointer" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }}>
-                        <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-1.5">
-                          <h3 className="font-bold text-base md:text-lg text-slate-900 group-hover:text-primary-600 transition-colors truncate max-w-[200px] md:max-w-none">{rec.roleTitle}</h3>
-                          <Badge className={STATUS_COLORS[rec.status]}>{rec.status}</Badge>
-                        </div>
-                        <div className="flex items-center text-xs font-medium text-slate-500 space-x-3">
-                          <span className="flex items-center gap-1.5 font-bold text-slate-700 truncate"><Briefcase size={12} className="text-slate-400" />{rec.company}</span>
-                          <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                          <span>{new Date(rec.dateSent).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 pl-3 md:pl-0 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
-                        <Button variant="accent" size="xs" onClick={(e) => {e.stopPropagation(); handlePrep(rec);}} className="text-white whitespace-nowrap"><BrainCircuit size={14} className="mr-1.5" /> Prep</Button>
-                        <Button variant="glass" size="xs" onClick={() => handleAIDraft(rec)} className="text-primary-600 whitespace-nowrap"><Zap size={14} className="mr-1.5" /> Draft</Button>
-                        <Button variant="secondary" size="xs" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }} className="whitespace-nowrap"><Eye size={14} className="mr-1.5" /> View</Button>
-                        <button onClick={(e) => { e.stopPropagation(); handleDeleteRecord(rec.id); }} className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-colors flex-shrink-0"><Trash2 size={16} /></button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <Card className="overflow-hidden border-none shadow-xl" noPadding>
-                <div className="overflow-x-auto">
-                 <table className="w-full text-left text-sm min-w-[600px]">
-                   <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
-                     <tr>
-                       <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Role</th>
-                       <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Company</th>
-                       <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Status</th>
-                       <th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest text-right">Actions</th>
-                     </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-50">
-                     {paginatedRecords.map(rec => (
-                       <tr key={rec.id} className="hover:bg-primary-50/30 transition-colors group cursor-pointer" onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }}>
-                         <td className="px-6 py-4 font-bold text-slate-900">{rec.roleTitle}</td>
-                         <td className="px-6 py-4 text-slate-600">{rec.company}</td>
-                         <td className="px-6 py-4"><Badge className={STATUS_COLORS[rec.status]}>{rec.status}</Badge></td>
-                         <td className="px-6 py-4 text-right">
-                           <div className="flex items-center justify-end gap-2">
-                             <Button size="xs" variant="accent" onClick={(e) => { e.stopPropagation(); handlePrep(rec); }}><BrainCircuit size={14} /></Button>
-                             <Button size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); handleAIDraft(rec); }}><Zap size={14} /></Button>
-                             <Button size="xs" variant="secondary" onClick={(e) => { e.stopPropagation(); setViewingRecord(rec); setIsViewModalOpen(true); }}><Eye size={14} /></Button>
-                             <Button size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); handleDeleteRecord(rec.id); }} className="text-slate-400 hover:text-rose-500"><Trash2 size={14} /></Button>
-                           </div>
-                         </td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-                </div>
-              </Card>
-            )}
-            
-            <PaginationControls 
-              currentPage={currentPage} 
-              totalPages={totalRecordPages} 
-              totalItems={filteredRecords.length} 
-              label="Records" 
-            />
+  const SidebarContent = () => (
+    <>
+      <div className="p-6 flex items-center gap-3">
+        <div className="w-8 h-8 bg-gradient-to-tr from-primary-600 to-indigo-500 rounded-lg flex items-center justify-center text-white shadow-glow">
+          <Command size={16} />
+        </div>
+        <div>
+          <h1 className="text-sm font-bold text-text-primary tracking-tight">ApexJob OS</h1>
+          <p className="text-[10px] text-text-muted font-mono">v3.0.0</p>
+        </div>
+        {/* Mobile Close Button */}
+        <button className="ml-auto md:hidden text-text-muted hover:text-text-primary" onClick={() => setIsMobileMenuOpen(false)}>
+           <X size={20} />
+        </button>
+      </div>
+
+      <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+        <div className="px-3 py-2 text-[10px] font-bold text-text-muted uppercase tracking-widest">Workspace</div>
+        {navItems.map((item) => (
+          <button 
+            key={item.id} 
+            onClick={() => setActiveTab(item.id)}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium
+              ${activeTab === item.id 
+                ? 'bg-surface-highlight text-text-primary shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] border border-border' 
+                : 'text-text-muted hover:text-text-primary hover:bg-surface-highlight'}`}
+          >
+            {React.cloneElement(item.icon as React.ReactElement<any>, { size: 16, className: activeTab === item.id ? 'text-primary-400' : 'text-text-muted' })}
+            {item.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="p-4 border-t border-border">
+        <div className="flex items-center gap-3 px-3 py-3 rounded-lg bg-surface border border-border mb-3">
+          <div className="w-8 h-8 rounded bg-gradient-to-br from-zinc-700 to-zinc-800 flex items-center justify-center text-xs font-bold text-white border border-border">
+            {user.name[0]}
           </div>
-        );
-      case 'contacts':
-        return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-center">
-              <div><h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Network</h2><p className="text-slate-500 text-sm font-medium">Key relationships</p></div>
-              <div className="flex gap-2">
-                 <Button variant="secondary" onClick={() => { setImportMode('CONTACTS'); setIsImportModalOpen(true); }} className="hidden sm:flex"><Upload size={16} className="mr-2" /> Import</Button>
-                 <Button onClick={() => { setEditingContact({}); setIsContactModalOpen(true); }} variant="gradient"><UserPlus size={18} className="mr-2" /> <span className="hidden sm:inline">New Contact</span><span className="sm:hidden">Add</span></Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {paginatedContacts.map(contact => (
-                <Card key={contact.id} className="p-6 group relative border-slate-200/60" hoverEffect>
-                   <div className="flex items-start justify-between mb-4">
-                      <div className="w-12 h-12 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-600 font-black text-lg group-hover:bg-primary-600 group-hover:text-white transition-all shadow-inner">{contact.name[0]}</div>
-                      <div className="flex gap-1">
-                        <button onClick={() => { setEditingContact(contact); setIsContactModalOpen(true); }} className="p-2 text-slate-400 hover:text-primary-600 rounded-lg"><Settings size={16} /></button>
-                        <button onClick={() => handleDeleteContact(contact.id)} className="p-2 text-slate-400 hover:text-rose-500 rounded-lg"><Trash2 size={16} /></button>
-                      </div>
-                   </div>
-                   <h3 className="font-bold text-lg text-slate-900 mb-1">{contact.name}</h3>
-                   <p className="text-xs font-bold text-primary-500 uppercase tracking-wide mb-4">{contact.company}</p>
-                   <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
-                      <span className="text-xs text-slate-400 truncate max-w-[120px]">{contact.email}</span>
-                      <Button variant="ghost" size="xs" onClick={() => { setSearchQuery(contact.email); setActiveTab('applications'); }} className="text-xs">History <ChevronRight size={10} className="ml-1" /></Button>
-                   </div>
-                </Card>
-              ))}
-            </div>
-            <PaginationControls 
-              currentPage={currentPage} 
-              totalPages={totalContactPages} 
-              totalItems={filteredContacts.length} 
-              label="Contacts" 
-            />
+          <div className="overflow-hidden">
+            <p className="text-xs font-bold text-text-primary truncate">{user.name}</p>
+            <p className="text-[10px] text-text-muted truncate">{user.email}</p>
           </div>
-        );
-      case 'templates':
-        return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-             <div className="flex justify-between items-center">
-              <div><h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Templates</h2><p className="text-slate-500 text-sm font-medium">Re-usable strategies</p></div>
-              <Button onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }} variant="gradient"><Plus size={18} className="mr-2" /> <span className="hidden sm:inline">New Template</span><span className="sm:hidden">New</span></Button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {templates.map(t => (
-                <Card key={t.id} className="p-6 group flex flex-col h-full border-slate-200/60" hoverEffect>
-                   <div className="flex justify-between items-start mb-4">
-                      <div><Badge className="bg-slate-100 text-slate-600 mb-2 border-transparent">{t.category}</Badge><h3 className="font-bold text-lg text-slate-900">{t.title}</h3></div>
-                      <div className="flex gap-1">
-                        <button onClick={() => { navigator.clipboard.writeText(t.content); showToast("Copied to clipboard."); }} className="p-2 hover:bg-primary-50 text-primary-600 rounded-lg"><Copy size={16} /></button>
-                        <button onClick={() => { setEditingTemplate(t); setIsTemplateModalOpen(true); }} className="p-2 hover:bg-slate-100 text-slate-400 rounded-lg"><Settings size={16} /></button>
-                        <button onClick={() => handleDeleteTemplate(t.id)} className="p-2 hover:bg-rose-50 text-rose-400 rounded-lg"><Trash2 size={16} /></button>
-                      </div>
-                   </div>
-                   <div className="flex-1 bg-slate-50/50 p-4 rounded-xl border border-slate-100 group-hover:border-primary-100 transition-colors mask-linear-fade relative">
-                     <p className="text-xs text-slate-600 font-mono line-clamp-4">{t.content}</p>
-                     <div className="absolute bottom-0 left-0 w-full h-8 bg-gradient-to-t from-slate-50 to-transparent"></div>
-                   </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        );
-      case 'audit':
-        return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div><h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">Audit Logs</h2><p className="text-slate-500 text-sm font-medium">System immutable history</p></div>
-            <Card className="overflow-hidden shadow-lg border-none" noPadding>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm min-w-[500px]">
-                  <thead className="bg-slate-900 text-slate-400">
-                    <tr><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Action</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Entity</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Detail</th><th className="px-6 py-4 font-bold text-[10px] uppercase tracking-widest">Time</th></tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {logs.map(log => (
-                      <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-3"><span className={`text-[10px] font-bold px-2 py-1 rounded-full ${log.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>{log.action}</span></td>
-                        <td className="px-6 py-3"><span className="text-xs font-mono font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{log.entityType}</span></td>
-                        <td className="px-6 py-3 text-slate-800 font-medium text-xs truncate max-w-[200px]">{log.message}</td>
-                        <td className="px-6 py-3 text-slate-400 font-mono text-[10px]">{new Date(log.executedAt).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-          </div>
-        );
-      default: return null;
-    }
-  };
+        </div>
+        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-2 text-xs font-medium text-text-muted hover:text-text-primary transition-colors">
+          <LogOut size={14} /> System Logout
+        </button>
+      </div>
+    </>
+  );
 
   return (
-    <div className="h-full flex bg-[#f8fafc] overflow-hidden">
-      {/* PERFORMANCE FIX: Fixed Background Layer */}
-      <div className="fixed inset-0 z-[-1] mesh-bg pointer-events-none" />
-
+    <div className="h-full flex text-text-primary font-sans selection:bg-primary-500/30 selection:text-white relative overflow-hidden bg-background">
+      
+      {/* GLOBAL TOAST NOTIFICATION - Fixed Z-Index to stay above modals */}
       {notification && (
-        <div className={`fixed top-6 right-6 z-[100] px-5 py-3 rounded-full shadow-2xl font-bold text-sm animate-in fade-in slide-in-from-right-10 flex items-center gap-3 border backdrop-blur-md ${notification.type === 'success' ? 'bg-emerald-500/90 text-white border-emerald-400' : 'bg-rose-500/90 text-white border-rose-400'}`}>
-          <div className="bg-white/20 p-1 rounded-full">{notification.type === 'success' ? <CheckCircle size={14} /> : <AlertTriangle size={14} />}</div>{notification.message}
+        <div className={`fixed top-6 right-6 z-[120] px-4 py-3 rounded-lg shadow-2xl font-bold text-sm animate-slide-up flex items-center gap-3 border backdrop-blur-xl ${notification.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+          {notification.type === 'success' ? <CheckCircle size={16} /> : <AlertTriangle size={16} />}
+          {notification.message}
         </div>
       )}
 
-      {/* Modern Sidebar - Hidden on Mobile */}
-      <aside className="hidden md:flex flex-none w-20 lg:w-72 bg-slate-950 text-slate-400 flex-col h-full border-r border-slate-800 overflow-y-auto z-40 transition-all duration-300">
-        <div className="p-6 flex items-center justify-center lg:justify-start gap-4 mb-6 sticky top-0 bg-slate-950 z-10">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary-600 to-accent-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary-500/30 flex-shrink-0"><Zap size={20} fill="currentColor" /></div>
-          <div className="hidden lg:block"><h1 className="text-lg font-black text-white tracking-tight leading-none">ApexJob</h1><p className="text-[10px] font-bold text-primary-400 uppercase tracking-widest mt-1">Pro CRM</p></div>
-        </div>
-        <nav className="flex-1 px-4 space-y-2">
-          {navItems.map((item) => (
-            <button key={item.id} onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-4 px-3 py-3 rounded-xl transition-all duration-200 group relative ${activeTab === item.id ? 'text-white bg-white/5 shadow-inner' : 'hover:text-white hover:bg-white/5'}`}
-            >
-              {activeTab === item.id && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-accent-500 rounded-r-full shadow-[0_0_10px_rgba(217,70,239,0.6)]"></div>}
-              <div className={`transition-transform duration-300 ${activeTab === item.id ? 'scale-110 text-primary-400' : ''}`}>{item.icon}</div>
-              <span className="hidden lg:block font-bold text-sm">{item.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-slate-800 bg-slate-900/50 sticky bottom-0">
-          <button onClick={handleLogout} className="w-full flex items-center justify-center lg:justify-start gap-3 p-2 text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 rounded-lg transition-colors">
-            <LogOut size={18} /><span className="hidden lg:block text-xs font-bold uppercase tracking-widest">Exit</span>
-          </button>
-        </div>
+      {/* DESKTOP SIDEBAR */}
+      <aside className="hidden md:flex w-64 bg-background border-r border-border flex-col z-40 backdrop-blur-xl h-full">
+        <SidebarContent />
       </aside>
 
-      {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 w-full bg-white/90 backdrop-blur-lg border-t border-slate-200 z-50 flex justify-around items-center px-2 py-3 pb-safe">
-        {navItems.map((item) => (
-           <button 
-             key={item.id} 
-             onClick={() => setActiveTab(item.id)}
-             className={`flex flex-col items-center justify-center p-2 rounded-xl transition-all duration-200 ${activeTab === item.id ? 'text-primary-600 bg-primary-50' : 'text-slate-400'}`}
-           >
-             {React.cloneElement(item.icon as React.ReactElement, { size: 20 })}
-             <span className="text-[9px] font-bold mt-1">{item.label}</span>
-           </button>
-        ))}
-        <button onClick={handleLogout} className="flex flex-col items-center justify-center p-2 text-rose-400">
-           <LogOut size={20} />
-           <span className="text-[9px] font-bold mt-1">Exit</span>
-        </button>
-      </nav>
+      {/* MOBILE SIDEBAR (DRAWER) */}
+      <div className={`md:hidden fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`} onClick={() => setIsMobileMenuOpen(false)} />
+      <aside className={`md:hidden fixed inset-y-0 left-0 z-[70] w-64 bg-background border-r border-border flex-col transform transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <SidebarContent />
+      </aside>
 
-      <main className="flex-1 h-full overflow-y-auto relative p-4 md:p-6 lg:p-10 pb-24 md:pb-10 min-w-0 transition-all duration-300 scroll-smooth">
-        <header className="mb-6 md:mb-10 sticky top-0 z-30 pt-2 -mt-2 pb-2 bg-[#f8fafc]/95 backdrop-blur-sm">
-          <div className="bg-white/95 p-3 rounded-full shadow-sm border border-slate-200 flex justify-between items-center">
-             <div className="flex items-center gap-3 pl-2 md:pl-4">
-                <div className="w-8 h-8 md:hidden bg-gradient-to-br from-primary-600 to-accent-600 rounded-lg flex items-center justify-center text-white"><Zap size={16} fill="currentColor" /></div>
-                <div className="hidden md:flex flex-col">
-                   <h2 className="text-xs font-black text-slate-400 uppercase tracking-widest">Command Center</h2>
-                   <div className="flex items-center gap-2"><div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div><span className="text-sm font-bold text-slate-700">System Online</span></div>
+      {/* MAIN VIEWPORT */}
+      <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden relative bg-background">
+        {/* HEADER */}
+        <header className="h-16 border-b border-border bg-background/60 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6 z-30 sticky top-0 shrink-0">
+          <div className="flex items-center gap-3 overflow-hidden">
+             {/* Mobile Menu Button */}
+             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden p-2 -ml-2 text-text-muted hover:text-text-primary">
+                <Menu size={20} />
+             </button>
+
+             <h2 className="text-lg font-bold text-text-primary truncate">{navItems.find(n => n.id === activeTab)?.label}</h2>
+             <div className="h-4 w-px bg-border hidden sm:block"></div>
+             
+             {activeTab === 'applications' && (
+                <div className="hidden sm:flex gap-2">
+                   <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-surface-highlight text-text-primary' : 'text-text-muted'}`}><LayoutGrid size={14} /></button>
+                   <button onClick={() => setViewMode('table')} className={`p-1.5 rounded ${viewMode === 'table' ? 'bg-surface-highlight text-text-primary' : 'text-text-muted'}`}><LayoutList size={14} /></button>
                 </div>
-                {/* Mobile Title */}
-                <span className="md:hidden font-black text-slate-900 tracking-tight">ApexJob</span>
-             </div>
-             <div className="flex items-center gap-2 md:gap-3 pr-2">
-              <div className="relative group hidden md:block">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary-500 transition-colors" size={16} />
-                <input placeholder="Search records..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-9 pr-4 py-2 w-64 bg-slate-100/50 border border-transparent rounded-full text-sm font-medium focus:bg-white focus:border-primary-200 focus:ring-4 focus:ring-primary-500/10 transition-all outline-none" />
-              </div>
-              
-              <Button variant={showFilters ? 'primary' : 'secondary'} onClick={() => setShowFilters(!showFilters)} size="sm" className={showFilters ? 'shadow-primary-500/20' : ''}>
-                <Filter size={16} className="md:mr-2" /> <span className="hidden md:inline">Filters</span>
-                {(filterStatuses.length > 0 || dateRange.start) && <Badge className="ml-2 bg-white text-primary-600">!</Badge>}
-              </Button>
-              
-              {/* Notification Bell */}
-              <button 
-                onClick={() => setIsNotificationOpen(true)}
-                className={`relative p-2.5 rounded-full transition-all duration-300 ${isNotificationOpen ? 'bg-rose-50 text-rose-500' : 'hover:bg-slate-100 text-slate-400 hover:text-slate-600'}`}
-              >
-                <Bell size={18} />
-                {reminders.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-rose-500 border border-white rounded-full animate-pulse-slow"></span>
-                )}
-              </button>
-
-              <div className="w-9 h-9 rounded-full bg-gradient-to-r from-primary-500 to-accent-500 text-white flex items-center justify-center font-black text-xs border border-white shadow-md">{user.name[0]}</div>
-             </div>
+             )}
           </div>
 
-          {showFilters && (
-            <div className="mt-2 p-6 glass-panel bg-white/95 rounded-3xl animate-in slide-in-from-top-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Mobile Search Field inside Filters */}
-              <div className="md:hidden">
-                <Label>Search</Label>
-                <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Keywords..." />
-              </div>
+          <div className="flex items-center gap-2 sm:gap-3">
+             <div className="relative group hidden sm:block">
+               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-text-secondary" size={14} />
+               <input 
+                 value={searchQuery} 
+                 onChange={(e) => setSearchQuery(e.target.value)}
+                 className="bg-surface-highlight border border-border rounded-lg pl-9 pr-3 py-1.5 text-xs text-text-primary w-32 lg:w-48 focus:w-64 transition-all outline-none focus:border-primary-500/50"
+                 placeholder="Search..." 
+               />
+             </div>
+             
+             {/* NOTIFICATION CENTER INTEGRATION */}
+             <NotificationCenter notifications={notifications} onMarkRead={handleMarkRead} onClearAll={handleClearNotifications} />
 
-              <div>
-                  <Label>Status</Label>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {Object.values(ApplicationStatus).map(s => (
-                      <Badge key={s} onClick={() => toggleStatusFilter(s)} className={`cursor-pointer border py-1.5 px-3 ${filterStatuses.includes(s) ? STATUS_COLORS[s] + ' ring-2 ring-offset-1' : 'bg-slate-50 text-slate-500 border-slate-200'}`}>
-                        {s} {filterStatuses.includes(s) && <CheckCircle size={10} className="ml-1.5 inline" />}
-                      </Badge>
-                    ))}
-                  </div>
-              </div>
-              <div>
-                  <Label>Date Range</Label>
-                  <div className="flex gap-2 mt-2">
-                    <input type="date" value={dateRange.start} onChange={(e) => setDateRange({...dateRange, start: e.target.value})} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 w-full" />
-                    <span className="self-center text-slate-400">to</span>
-                    <input type="date" value={dateRange.end} onChange={(e) => setDateRange({...dateRange, end: e.target.value})} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-primary-500 w-full" />
-                  </div>
-              </div>
-            </div>
-          )}
+             {/* Action Buttons - Responsive Grouping */}
+             <div className="flex gap-2">
+                 {activeTab === 'applications' && (
+                   <>
+                     <Button size="sm" variant="secondary" className="hidden sm:inline-flex" onClick={() => { setImportMode('RECORDS'); setImportStage('INPUT'); setIsImportModalOpen(true); }}>
+                       <DownloadCloud size={14} className="mr-2" /> Import
+                     </Button>
+                     {/* Mobile Icon-only Import */}
+                     <button className="sm:hidden p-2 bg-surface-highlight rounded-lg text-text-primary" onClick={() => { setImportMode('RECORDS'); setImportStage('INPUT'); setIsImportModalOpen(true); }}>
+                        <DownloadCloud size={16} />
+                     </button>
+                     
+                     <Button size="sm" variant="gradient" onClick={() => { setEditingRecord({}); setIsModalOpen(true); }}>
+                       <Plus size={14} className="sm:mr-2" /> <span className="hidden sm:inline">New Entry</span>
+                     </Button>
+                   </>
+                 )}
+                  {activeTab === 'contacts' && (
+                   <>
+                     <Button size="sm" variant="secondary" className="hidden sm:inline-flex" onClick={() => { setImportMode('CONTACTS'); setImportStage('INPUT'); setIsImportModalOpen(true); }}>
+                        <DownloadCloud size={14} className="mr-2" /> Import
+                     </Button>
+                      <button className="sm:hidden p-2 bg-surface-highlight rounded-lg text-text-primary" onClick={() => { setImportMode('CONTACTS'); setImportStage('INPUT'); setIsImportModalOpen(true); }}>
+                        <DownloadCloud size={16} />
+                     </button>
+                     <Button size="sm" variant="gradient" onClick={() => { setEditingContact({}); setIsContactModalOpen(true); }}>
+                        <UserPlus size={14} className="sm:mr-2" /> <span className="hidden sm:inline">Add Node</span>
+                     </Button>
+                   </>
+                 )}
+                 {activeTab === 'templates' && (
+                   <Button size="sm" variant="gradient" onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }}>
+                      <Plus size={14} className="sm:mr-2" /> <span className="hidden sm:inline">New Template</span>
+                   </Button>
+                 )}
+             </div>
+          </div>
         </header>
 
-        {renderContent()}
-
-        {/* Modals - Adjusted for Mobile Width */}
-        <Modal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} title={importMode === 'RECORDS' ? "Import Records" : "Import Contacts"} size="lg">
-           <div className="space-y-4">
-              <div className="bg-slate-900 text-slate-300 p-4 rounded-xl text-xs font-mono">
-                {importMode === 'RECORDS' ? 'Format: Company, Role, Name, Email, Status' : 'Format: Name, Email, Company, LinkedIn, Notes'}
-              </div>
-              <Textarea rows={8} value={importText} onChange={e => setImportText(e.target.value)} placeholder="Paste CSV data..." />
-              <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setIsImportModalOpen(false)}>Cancel</Button><Button onClick={handleImport}>Process</Button></div>
-           </div>
-        </Modal>
-
-        <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingRecord(null); }} title={editingRecord?.id ? 'Edit Record' : 'New Application'} size="lg">
-          <TrackingForm initialData={editingRecord || {}} contacts={contacts} onSave={handleSaveRecord} onCancel={() => { setIsModalOpen(false); setEditingRecord(null); }} />
-        </Modal>
-
-        <Modal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setViewingRecord(null); }} title="Details" size="lg">
-          {viewingRecord && <RecordDetails record={viewingRecord} onEdit={(rec) => { setIsViewModalOpen(false); setEditingRecord(rec); setIsModalOpen(true); }} onDelete={handleDeleteRecord} onPrep={handlePrep} />}
-        </Modal>
-
-        <Modal isOpen={isTemplateModalOpen} onClose={() => { setIsTemplateModalOpen(false); setEditingTemplate(null); }} title="Strategy Template">
-          <form onSubmit={handleSaveTemplate} className="space-y-4">
-            <div><Label required>Name</Label><Input required value={editingTemplate?.title || ''} onChange={e => setEditingTemplate(p => ({ ...p, title: e.target.value }))} /></div>
-            <div><Label required>Type</Label><Select value={editingTemplate?.category || EmailType.COLD} onChange={e => setEditingTemplate(p => ({ ...p, category: e.target.value as EmailType }))}>{Object.values(EmailType).map(t => <option key={t} value={t}>{t}</option>)}</Select></div>
-            <div><Label required>Content</Label><Textarea required rows={8} value={editingTemplate?.content || ''} onChange={e => setEditingTemplate(p => ({ ...p, content: e.target.value }))} /></div>
-            <div className="flex justify-end gap-2 mt-4"><Button variant="ghost" type="button" onClick={() => setIsTemplateModalOpen(false)}>Cancel</Button><Button type="submit">Save</Button></div>
-          </form>
-        </Modal>
-
-        <Modal isOpen={isContactModalOpen} onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }} title="Contact Node">
-          <ContactForm initialData={editingContact || {}} onSave={handleSaveContact} onCancel={() => { setIsContactModalOpen(false); setEditingContact(null); }} />
-        </Modal>
-
-        <Modal isOpen={isNotificationOpen} onClose={() => setIsNotificationOpen(false)} title="Action Required">
-            <div className="space-y-4">
-              {reminders.length === 0 ? (
-                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                  <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
-                    <CheckCircle size={24} />
+        {/* WORKSPACE CONTENT */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth custom-scrollbar">
+          
+          {activeTab === 'dashboard' && <Dashboard applications={records} onOpenRecord={(rec) => { setViewingRecord(rec); setIsViewModalOpen(true); }} />}
+          
+          {activeTab === 'applications' && (
+             <div className="animate-fade-in space-y-6 flex flex-col h-full">
+                <div className="flex-1">
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                     {paginatedRecords.map(rec => (
+                       <div key={rec.id} onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }} className="glass-panel p-5 rounded-xl hover:border-primary-500/30 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden bg-surface border-border">
+                          <div className={`absolute top-0 left-0 w-1 h-full ${rec.status === ApplicationStatus.OFFER ? 'bg-emerald-500' : 'bg-primary-500/50'}`}></div>
+                          <div className="flex justify-between items-start mb-3 pl-3">
+                             <div>
+                                <h3 className="text-base font-bold text-text-primary group-hover:text-primary-400 transition-colors truncate max-w-[150px] sm:max-w-[180px]">{rec.roleTitle}</h3>
+                                <p className="text-xs text-text-secondary font-medium truncate max-w-[150px]">{rec.company}</p>
+                             </div>
+                             <Badge className={STATUS_STYLES[rec.status]}>{rec.status}</Badge>
+                          </div>
+                          <div className="pl-3 flex justify-between items-end mt-4">
+                             <span className="text-[10px] text-text-muted font-mono">{new Date(rec.dateSent).toLocaleDateString()}</span>
+                             <div className="flex gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                <Button size="xs" variant="secondary" onClick={(e) => {e.stopPropagation(); handlePrep(rec);}}>Prep</Button>
+                                <button onClick={(e) => {e.stopPropagation(); handleDeleteRecord(rec.id);}} className="text-text-muted hover:text-red-400 p-1"><Trash2 size={14} /></button>
+                             </div>
+                          </div>
+                       </div>
+                     ))}
                   </div>
-                  <h3 className="text-sm font-bold text-slate-900">All Clear</h3>
-                  <p className="text-xs text-slate-500 mt-1">No pending follow-ups required.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-wide px-1">
-                    <span>Due Reminders</span>
-                    <span>{reminders.length} Pending</span>
+                ) : (
+                  <div className="bg-surface rounded-xl overflow-hidden border border-border shadow-sm">
+                     <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-text-secondary whitespace-nowrap">
+                            <thead className="bg-surface-highlight text-text-muted font-medium border-b border-border">
+                            <tr><th className="px-6 py-3 text-xs uppercase tracking-wider">Role</th><th className="px-6 py-3 text-xs uppercase tracking-wider">Company</th><th className="px-6 py-3 text-xs uppercase tracking-wider">Status</th><th className="px-6 py-3 text-right text-xs uppercase tracking-wider">Actions</th></tr>
+                            </thead>
+                            <tbody>
+                            {paginatedRecords.map(rec => (
+                                <tr key={rec.id} onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }} className="group hover:bg-white/[0.02] cursor-pointer transition-colors border-b border-border last:border-0">
+                                    <td className="px-6 py-4 font-medium text-text-primary group-hover:text-primary-400 transition-colors">{rec.roleTitle}</td>
+                                    <td className="px-6 py-4 text-text-secondary group-hover:text-text-primary">{rec.company}</td>
+                                    <td className="px-6 py-4"><Badge className={STATUS_STYLES[rec.status]}>{rec.status}</Badge></td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button onClick={(e) => {e.stopPropagation(); handleDeleteRecord(rec.id);}} className="text-text-muted hover:text-red-400 p-2 rounded-lg hover:bg-surface transition-colors"><Trash2 size={14} /></button>
+                                    </td>
+                                </tr>
+                            ))}
+                            </tbody>
+                        </table>
+                     </div>
                   </div>
-                  {reminders.map(rec => (
-                    <div key={rec.id} className="bg-white p-4 rounded-xl border border-rose-100 shadow-sm flex items-center justify-between group hover:border-rose-300 transition-colors">
-                      <div className="flex items-start gap-3">
-                         <div className="bg-rose-50 text-rose-500 p-2 rounded-lg mt-1">
-                           <Clock size={16} />
-                         </div>
-                         <div>
-                            <h4 className="font-bold text-slate-900">{rec.roleTitle}</h4>
-                            <p className="text-xs font-bold text-slate-500">{rec.company}</p>
-                            <div className="flex items-center gap-2 mt-1 text-[10px] text-rose-500 font-bold uppercase tracking-wide">
-                              <span>Due: {new Date(rec.nextFollowUpDate!).toLocaleDateString()}</span>
-                            </div>
-                         </div>
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Button 
-                          size="xs" 
-                          variant="secondary" 
-                          onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); setIsNotificationOpen(false); }}
-                        >
-                          View <ArrowRight size={10} className="ml-1" />
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="ghost"
-                          onClick={() => handleMarkFollowUpSent(rec)}
-                          className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
-                        >
-                          Mark Sent
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                )}
                 </div>
-              )}
-            </div>
-        </Modal>
+                {/* Pagination Controls */}
+                <Pagination 
+                   currentPage={currentPage} 
+                   totalPages={Math.ceil(filteredRecords.length / itemsPerPage)} 
+                   onPageChange={setCurrentPage} 
+                   totalItems={filteredRecords.length}
+                   itemsPerPage={itemsPerPage}
+                   onItemsPerPageChange={setItemsPerPage}
+                />
+             </div>
+          )}
 
-        <Modal isOpen={isPrepModalOpen} onClose={() => setIsPrepModalOpen(false)} title="AI Interview Coach" size="lg">
-            {isPrepping ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                   <div className="w-16 h-16 border-4 border-accent-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-                   <h3 className="text-lg font-black text-slate-900">Generating Questions...</h3>
-                   <p className="text-slate-500">Analzying company profile and role requirements.</p>
-                </div>
-            ) : prepData?.questions ? (
-                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                    {prepData.questions.map((q, idx) => (
-                        <div key={idx} className="bg-slate-50 border border-slate-100 rounded-2xl p-6 transition-all hover:shadow-md">
-                            <div className="flex items-start gap-4 mb-4">
-                                <div className="bg-gradient-to-br from-primary-500 to-accent-500 w-8 h-8 rounded-lg flex items-center justify-center font-black text-white shadow-md flex-shrink-0 text-sm">
-                                  {idx + 1}
-                                </div>
-                                <h3 className="text-lg font-bold text-slate-900 leading-snug">{q.question}</h3>
+          {activeTab === 'contacts' && (
+             <div className="animate-fade-in flex flex-col h-full">
+                <div className="flex-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {paginatedContacts.map(contact => (
+                        <div key={contact.id} className="bg-surface border border-border p-5 rounded-xl flex items-start justify-between group hover:border-primary-500/30 transition-all shadow-sm">
+                            <div className="flex items-start gap-4 overflow-hidden">
+                              <div className="w-10 h-10 bg-surface-highlight rounded-lg flex items-center justify-center text-text-muted font-bold border border-border shrink-0">{contact.name[0]}</div>
+                              <div className="min-w-0">
+                                  <h3 className="text-sm font-bold text-text-primary truncate">{contact.name}</h3>
+                                  <p className="text-xs text-primary-400 font-medium mb-1 truncate">{contact.company}</p>
+                                  <p className="text-[10px] text-text-muted font-mono truncate">{contact.email}</p>
+                              </div>
                             </div>
-                            
-                            {revealedAnswers.includes(idx) ? (
-                                <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-xl text-sm text-emerald-900 animate-in fade-in slide-in-from-top-2 relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 w-1 h-full bg-emerald-400"></div>
-                                    <div className="flex items-center gap-2 mb-2 text-emerald-600 font-bold uppercase text-[10px] tracking-widest">
-                                      <CheckCircle size={12} /> Ideal Answer Strategy
-                                    </div>
-                                    <p className="leading-relaxed whitespace-pre-wrap">{q.idealAnswerKey || "No specific answer key provided by AI for this question."}</p>
-                                </div>
-                            ) : (
-                                <div 
-                                  onClick={() => setRevealedAnswers(prev => [...prev, idx])}
-                                  className="group cursor-pointer relative bg-slate-100 rounded-xl p-4 flex items-center justify-center border border-dashed border-slate-300 hover:border-accent-300 hover:bg-accent-50 transition-all"
-                                >
-                                  <div className="filter blur-sm select-none opacity-40 text-xs text-slate-400">
-                                    This is a hidden answer key. Click to reveal the AI suggested response strategy for this question.
-                                  </div>
-                                  <div className="absolute inset-0 flex items-center justify-center">
-                                    <Button size="sm" variant="secondary" className="shadow-lg group-hover:scale-105 transition-transform">
-                                      <Eye size={14} className="mr-2" /> Reveal Answer Key
-                                    </Button>
-                                  </div>
-                                </div>
-                            )}
+                            <div className="flex flex-col gap-1 items-end">
+                                <button onClick={() => { setEditingContact(contact); setIsContactModalOpen(true); }} className="text-text-muted hover:text-text-primary transition-colors shrink-0 p-1"><Edit3 size={14} /></button>
+                                <button onClick={() => handleDeleteContact(contact.id)} className="text-text-muted hover:text-red-400 transition-colors shrink-0 p-1"><Trash2 size={14} /></button>
+                            </div>
                         </div>
-                    ))}
-                    <div className="flex justify-end pt-4 border-t border-slate-100">
-                        <Button onClick={() => setIsPrepModalOpen(false)} variant="ghost">Close Session</Button>
-                    </div>
+                      ))}
+                  </div>
                 </div>
-            ) : (
-                <div className="text-center py-12 flex flex-col items-center">
-                   <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mb-4 text-rose-400">
-                     <AlertTriangle size={32} />
-                   </div>
-                   <h3 className="text-slate-900 font-bold mb-1">Generation Failed</h3>
-                   <p className="text-slate-500 text-sm">AI could not generate questions at this time.</p>
-                </div>
-            )}
-        </Modal>
+                <Pagination 
+                   currentPage={currentPage} 
+                   totalPages={Math.ceil(filteredContacts.length / itemsPerPage)} 
+                   onPageChange={setCurrentPage} 
+                   totalItems={filteredContacts.length}
+                   itemsPerPage={itemsPerPage}
+                   onItemsPerPageChange={setItemsPerPage}
+                   className="mt-6"
+                />
+             </div>
+          )}
 
-        <DeleteModal isOpen={deleteConfig.isOpen} onClose={() => setDeleteConfig({ ...deleteConfig, isOpen: false })} onConfirm={executeDelete} title="Confirm Deletion" description={<span>Permanently remove <strong>{deleteConfig.meta?.name}</strong>?</span>} />
+          {activeTab === 'templates' && (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-fade-in">
+                {templates.length > 0 ? (
+                    templates.map(t => (
+                       <div key={t.id} className="bg-surface border border-border p-5 rounded-xl group hover:border-border-strong transition-all shadow-sm">
+                          <div className="flex justify-between mb-3">
+                             <Badge className="bg-surface-highlight text-text-secondary border-border">{t.category}</Badge>
+                             <div className="flex gap-2">
+                                <button onClick={() => { setEditingTemplate(t); setIsTemplateModalOpen(true); }} className="text-text-muted hover:text-text-primary"><Settings size={14} /></button>
+                                <button onClick={() => handleDeleteTemplate(t.id)} className="text-text-muted hover:text-red-400"><Trash2 size={14} /></button>
+                             </div>
+                          </div>
+                          <h3 className="text-base font-bold text-text-primary mb-2">{t.title}</h3>
+                          <p className="text-xs text-text-muted line-clamp-3 font-mono leading-relaxed bg-surface-highlight p-3 rounded-lg border border-border-subtle">{t.content}</p>
+                       </div>
+                    ))
+                ) : (
+                    <div className="col-span-full flex flex-col items-center justify-center h-64 text-text-muted border border-dashed border-border rounded-xl bg-surface/50">
+                        <FileText size={48} className="mb-4 opacity-20" />
+                        <p className="text-sm font-medium text-text-secondary">No templates found</p>
+                        <p className="text-xs opacity-50">Create a template to streamline your outreach</p>
+                    </div>
+                )}
+             </div>
+          )}
+
+          {activeTab === 'audit' && (
+             <div className="bg-surface border border-border rounded-xl overflow-hidden animate-fade-in shadow-sm">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-text-secondary whitespace-nowrap">
+                    <thead className="bg-surface-highlight text-text-muted font-medium border-b border-border">
+                        <tr><th className="px-6 py-3 text-xs">Action</th><th className="px-6 py-3 text-xs">Entity</th><th className="px-6 py-3 text-xs">Message</th><th className="px-6 py-3 text-xs text-right">Time</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                        {logs.map(log => (
+                            <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                                <td className="px-6 py-3 font-mono text-xs"><span className={log.status === 'SUCCESS' ? 'text-emerald-400' : 'text-red-400'}>{log.action}</span></td>
+                                <td className="px-6 py-3 text-xs text-text-muted">{log.entityType}</td>
+                                <td className="px-6 py-3 text-text-secondary max-w-[200px] truncate">{log.message}</td>
+                                <td className="px-6 py-3 text-right text-[10px] font-mono text-text-muted">{new Date(log.executedAt).toLocaleTimeString()}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                    </table>
+                </div>
+             </div>
+          )}
+        </div>
       </main>
+
+      {/* ALL MODALS - Now fully responsive via Shared component update */}
+      <Modal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingRecord(null); }} title={editingRecord?.id ? 'Edit System Record' : 'Initialize New Record'} size="lg">
+        <TrackingForm initialData={editingRecord || {}} contacts={contacts} onSave={handleSaveRecord} onCancel={() => { setIsModalOpen(false); setEditingRecord(null); }} />
+      </Modal>
+
+      <Modal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setViewingRecord(null); }} title="Record Dossier" size="lg">
+        {viewingRecord && <RecordDetails record={viewingRecord} onEdit={(rec) => { setIsViewModalOpen(false); setEditingRecord(rec); setIsModalOpen(true); }} onDelete={handleDeleteRecord} onPrep={handlePrep} />}
+      </Modal>
+
+      <Modal isOpen={isContactModalOpen} onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }} title="Contact Node">
+         <ContactForm initialData={editingContact || {}} onSave={handleSaveContact} onCancel={() => { setIsContactModalOpen(false); setEditingContact(null); }} />
+      </Modal>
+
+      <Modal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} title="Strategy Template">
+        <form onSubmit={handleSaveTemplate} className="space-y-4">
+           <div><Label>Name</Label><Input value={editingTemplate?.title || ''} onChange={e => setEditingTemplate(p => ({ ...p, title: e.target.value }))} /></div>
+           <div><Label>Type</Label><Select value={editingTemplate?.category} onChange={e => setEditingTemplate(p => ({ ...p, category: e.target.value as EmailType }))}>{Object.values(EmailType).map(t => <option key={t} value={t}>{t}</option>)}</Select></div>
+           <div><Label>Content</Label><Textarea rows={10} value={editingTemplate?.content || ''} onChange={e => setEditingTemplate(p => ({ ...p, content: e.target.value }))} /></div>
+           <div className="flex justify-end gap-2 pt-2"><Button type="button" variant="ghost" onClick={() => setIsTemplateModalOpen(false)}>Cancel</Button><Button type="submit">Save Template</Button></div>
+        </form>
+      </Modal>
+
+      {/* REFACTORED IMPORT MODAL WITH PREVIEW */}
+      <Modal isOpen={isImportModalOpen} onClose={handleCancelImport} title={`Batch Import Protocol (${importMode})`} size="lg">
+        {importStage === 'INPUT' ? (
+          <div className="space-y-4 h-full flex flex-col">
+             <div className="bg-primary-500/10 border border-primary-500/20 p-4 rounded-lg shrink-0">
+               <div className="flex items-start gap-3">
+                  <div className="p-2 bg-primary-500/20 rounded text-primary-400"><FileText size={18} /></div>
+                  <div>
+                      <h4 className="text-xs font-bold text-primary-300 uppercase tracking-widest mb-1">CSV Formatting Protocol</h4>
+                      <p className="text-xs text-primary-200/80 leading-relaxed mb-2">Data must contain headers. Quotes are supported.</p>
+                      <div className="text-[10px] font-mono bg-surface-highlight p-2 rounded border border-border text-text-secondary">
+                        {importMode === 'RECORDS' ? "company, role, status" : "name, email, company"}
+                      </div>
+                  </div>
+               </div>
+             </div>
+             <div className="flex-1 min-h-0">
+                  <textarea 
+                      placeholder="Paste raw CSV data here..." 
+                      value={importText} 
+                      onChange={e => setImportText(e.target.value)} 
+                      className="w-full h-full p-4 font-mono text-xs bg-surface-highlight border border-border rounded-lg text-text-secondary resize-none focus:ring-1 focus:ring-primary-500/50 outline-none leading-relaxed placeholder:text-text-muted"
+                  />
+             </div>
+             <div className="flex justify-end gap-2 pt-2 shrink-0">
+               <Button variant="ghost" onClick={handleCancelImport}>Abort</Button>
+               <Button onClick={handleAnalyzeImport} disabled={!importText.trim()}>Analyze Data</Button>
+             </div>
+          </div>
+        ) : (
+          <div className="space-y-4 h-full flex flex-col">
+              <div className="flex gap-4 shrink-0">
+                 <div className="flex-1 bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg">
+                    <div className="text-2xl font-bold text-emerald-400">{importPreview.valid.length}</div>
+                    <div className="text-[10px] uppercase font-bold text-emerald-600">Valid Rows</div>
+                 </div>
+                 <div className="flex-1 bg-red-500/10 border border-red-500/20 p-3 rounded-lg">
+                    <div className="text-2xl font-bold text-red-400">{importPreview.invalid.length}</div>
+                    <div className="text-[10px] uppercase font-bold text-red-600">Skipped (Invalid)</div>
+                 </div>
+              </div>
+
+              <div className="flex-1 overflow-hidden border border-border rounded-lg bg-surface">
+                 <div className="overflow-auto h-full">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                       <thead className="bg-surface-highlight text-text-muted sticky top-0">
+                          <tr>
+                             <th className="px-3 py-2">Status</th>
+                             <th className="px-3 py-2">{importMode === 'RECORDS' ? 'Company' : 'Name'}</th>
+                             <th className="px-3 py-2">{importMode === 'RECORDS' ? 'Role' : 'Email'}</th>
+                             <th className="px-3 py-2">Raw Preview</th>
+                          </tr>
+                       </thead>
+                       <tbody className="divide-y divide-border">
+                          {importPreview.all.map((row, i) => {
+                             const isValid = importPreview.valid.includes(row);
+                             return (
+                                <tr key={i} className={isValid ? 'bg-emerald-500/5' : 'bg-red-500/5'}>
+                                   <td className="px-3 py-2">
+                                      {isValid ? <CheckCircle size={14} className="text-emerald-500" /> : <AlertCircle size={14} className="text-red-500" />}
+                                   </td>
+                                   <td className="px-3 py-2 text-text-secondary">{row.company || row.name || '-'}</td>
+                                   <td className="px-3 py-2 text-text-muted">{row.roleTitle || row.email || '-'}</td>
+                                   <td className="px-3 py-2 font-mono text-[10px] text-text-muted max-w-[200px] truncate">{JSON.stringify(row)}</td>
+                                </tr>
+                             )
+                          })}
+                       </tbody>
+                    </table>
+                 </div>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 shrink-0">
+                 <div className="text-xs text-text-muted">
+                    Reviewing {importPreview.all.length} total rows
+                 </div>
+                 <div className="flex gap-2">
+                    <Button variant="ghost" onClick={() => setImportStage('INPUT')}>Back to Edit</Button>
+                    <Button onClick={handleCommitImport} variant={importPreview.valid.length > 0 ? 'primary' : 'secondary'} disabled={importPreview.valid.length === 0}>
+                       Commit Import
+                    </Button>
+                 </div>
+              </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal isOpen={isPrepModalOpen} onClose={() => setIsPrepModalOpen(false)} title="AI Interview Simulator" size="lg">
+         {isPrepping ? (
+            <div className="flex flex-col items-center justify-center py-16">
+               <div className="w-12 h-12 border-2 border-primary-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+               <h3 className="text-text-primary font-bold">Synthesizing Scenarios...</h3>
+            </div>
+         ) : prepData ? (
+            <div className="space-y-6">
+               {prepData.questions.map((q, i) => (
+                  <div key={i} className="bg-surface border border-border rounded-xl p-5 shadow-sm">
+                     <div className="flex gap-4">
+                        <div className="w-6 h-6 rounded bg-primary-900/50 text-primary-400 flex items-center justify-center text-xs font-bold border border-primary-500/20 shrink-0">{i+1}</div>
+                        <h3 className="text-sm font-bold text-text-primary leading-relaxed">{q.question}</h3>
+                     </div>
+                     {revealedAnswers.includes(i) ? (
+                        <div className="mt-4 p-4 bg-emerald-900/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-200 leading-relaxed animate-fade-in">
+                           <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-2">Target Response Key</p>
+                           {q.idealAnswerKey}
+                        </div>
+                     ) : (
+                        <div onClick={() => setRevealedAnswers(p => [...p, i])} className="mt-4 p-4 bg-surface-highlight border border-border border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:bg-surface-highlight/80 transition-colors group">
+                           <span className="text-xs text-text-muted group-hover:text-primary-400 font-medium flex items-center gap-2"><Eye size={14} /> Reveal Strategy</span>
+                        </div>
+                     )}
+                  </div>
+               ))}
+            </div>
+         ) : null}
+      </Modal>
+
+      <DeleteModal isOpen={deleteConfig.isOpen} onClose={() => setDeleteConfig({ ...deleteConfig, isOpen: false })} onConfirm={executeDelete} title="Confirm Purge" description={<span>Permanently delete <strong>{deleteConfig.meta?.name}</strong>? This action is irreversible.</span>} />
     </div>
   );
 };

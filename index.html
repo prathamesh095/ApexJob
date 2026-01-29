@@ -1,126 +1,139 @@
+
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en" class="h-full antialiased">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>ApexJob | Mission-Critical CRM</title>
+    <title>ApexJob | OS</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+              sans: ['"Inter"', 'sans-serif'],
               mono: ['"JetBrains Mono"', 'monospace'],
             },
             colors: {
+              // SEMANTIC TOKENS - REFINED FOR CALMNESS
+              background: '#09090b', // Zinc 950 - Deepest background
+              surface: '#121215',    // Slightly elevated surface
+              'surface-highlight': '#1e1e22', // Subtle highlight for cards/inputs
+              
+              border: {
+                DEFAULT: 'rgba(255, 255, 255, 0.08)', // Soft consistent border
+                subtle: 'rgba(255, 255, 255, 0.04)',  // Dividers
+                strong: 'rgba(255, 255, 255, 0.15)',  // Active/Focus borders
+              },
+
+              text: {
+                primary: '#f4f4f5',   // Zinc 100 - High contrast text
+                secondary: '#a1a1aa', // Zinc 400 - Body text (Good readability)
+                muted: '#71717a',     // Zinc 500 - Metadata (De-emphasized)
+                inverted: '#09090b',
+              },
+
               primary: {
-                50: '#f5f3ff',
-                100: '#ede9fe',
-                200: '#ddd6fe',
-                300: '#c4b5fd',
-                400: '#a78bfa',
-                500: '#8b5cf6',
-                600: '#7c3aed', // Brand Violet
-                700: '#6d28d9',
-                800: '#5b21b6',
-                900: '#4c1d95',
-                950: '#2e1065',
+                50: '#eef2ff',
+                100: '#e0e7ff',
+                200: '#c7d2fe',
+                300: '#a5b4fc',
+                400: '#818cf8',
+                500: '#6366f1', // Brand Indigo
+                600: '#4f46e5',
+                700: '#4338ca',
+                800: '#3730a3',
+                900: '#312e81',
+                950: '#1e1b4b',
               },
               accent: {
-                500: '#d946ef', // Fuchsia
-                600: '#c026d3',
+                 500: '#10b981', // Emerald
+                 600: '#059669',
               },
-              slate: {
-                850: '#151e2e',
-                950: '#020617',
+              status: {
+                info: '#3b82f6',    // Blue
+                success: '#10b981', // Emerald
+                warning: '#f59e0b', // Amber
+                error: '#ef4444',   // Red
+                neutral: '#71717a', // Zinc
               }
             },
             animation: {
-              'shimmer': 'shimmer 2.5s linear infinite',
-              'float': 'float 6s ease-in-out infinite',
-              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'fade-in': 'fadeIn 0.4s ease-out forwards',
+              'slide-up': 'slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              'scale-in': 'scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             },
             keyframes: {
-              shimmer: {
-                '0%': { backgroundPosition: '-1000px 0' },
-                '100%': { backgroundPosition: '1000px 0' }
-              },
-              float: {
-                '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-10px)' },
-              }
+              fadeIn: { '0%': { opacity: 0 }, '100%': { opacity: 1 } },
+              slideUp: { '0%': { transform: 'translateY(10px)', opacity: 0 }, '100%': { transform: 'translateY(0)', opacity: 1 } },
+              scaleIn: { '0%': { transform: 'scale(0.98)', opacity: 0 }, '100%': { transform: 'scale(1)', opacity: 1 } }
+            },
+            boxShadow: {
+              'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+              'glow': '0 0 40px -10px rgba(99, 102, 241, 0.1)',
+              'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.2)',
             }
           }
         }
       }
     </script>
     <style>
-        /* Force full height for container scrolling */
+        :root {
+            --glass-border: rgba(255, 255, 255, 0.06);
+            --glass-bg: rgba(18, 18, 21, 0.6);
+        }
+
         html, body {
             height: 100%;
             margin: 0;
-            padding: 0;
-            overflow: hidden; /* Prevent window scroll */
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: #f8fafc;
-            transform: translateZ(0); /* Hardware accel */
+            overflow: hidden;
+            background-color: #09090b;
+            color: #f4f4f5;
+            -webkit-font-smoothing: antialiased;
         }
 
-        #root {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
+        /* Subtle Ambient Mesh */
+        .ambient-mesh {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.03) 0, transparent 50%), 
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.02) 0, transparent 50%);
+            z-index: -1;
+            pointer-events: none;
         }
-        
-        /* Global UI Polish */
-        ::selection { background-color: #7c3aed; color: white; }
-        
-        /* Custom Scrollbar */
+
+        /* Refined Noise */
+        .noise-overlay {
+            position: fixed;
+            inset: 0;
+            opacity: 0.02;
+            z-index: 9999;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        /* Elegant Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
 
-        /* Glassmorphism Utilities */
+        /* Modern Utilities */
         .glass-panel {
-            background: rgba(255, 255, 255, 0.75);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
         }
         
-        .mesh-bg {
-            background-color: #f8fafc;
-            background-image: 
-                radial-gradient(at 0% 0%, hsla(253,16%,7%,0.05) 0, transparent 50%), 
-                radial-gradient(at 50% 0%, hsla(270,90%,90%,1) 0, transparent 50%), 
-                radial-gradient(at 100% 0%, hsla(339,90%,90%,1) 0, transparent 50%);
-            background-size: 100% 100%;
-            background-repeat: no-repeat;
-        }
-        
-        .mask-linear-fade {
-            mask-image: linear-gradient(to right, black 80%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to right, black 80%, transparent 100%);
-        }
-
-        /* Safe area for mobile */
-        .pb-safe {
-            padding-bottom: env(safe-area-inset-bottom, 20px);
-        }
-        
-        /* Hide scrollbar for cleaner UI in specific areas */
-        .scrollbar-hide::-webkit-scrollbar {
-            display: none;
-        }
-        .scrollbar-hide {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        /* Smooth selection */
+        ::selection {
+            background: rgba(99, 102, 241, 0.2);
+            color: #e0e7ff;
         }
     </style>
 <script type="importmap">
@@ -136,7 +149,9 @@
 }
 </script>
 </head>
-<body class="bg-slate-50 text-slate-900 antialiased selection:bg-primary-500 selection:text-white">
+<body>
     <div id="root"></div>
+    <div class="ambient-mesh"></div>
+    <div class="noise-overlay"></div>
 </body>
 </html>
