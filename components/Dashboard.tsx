@@ -8,7 +8,7 @@ import { TrackingRecord, ApplicationStatus } from '../types';
 import { 
   CheckCircle, Send, Target, Sparkles, Activity, Layers, 
   BarChart3, AlertCircle, Clock, Calendar, ArrowRight, 
-  Briefcase, Mail, MessageSquare 
+  Briefcase, Mail, MessageSquare, Plus 
 } from 'lucide-react';
 import { Card, Button, Badge } from './Shared';
 import { STATUS_STYLES } from '../constants';
@@ -16,6 +16,7 @@ import { STATUS_STYLES } from '../constants';
 interface Props {
   applications: TrackingRecord[];
   onOpenRecord: (record: TrackingRecord) => void;
+  onNewApplication?: () => void;
 }
 
 // Helper to determine urgency level
@@ -27,7 +28,14 @@ const getUrgency = (record: TrackingRecord) => {
   return 'normal';
 };
 
-const ActionItem = ({ record, reason, type, onOpen }: { record: TrackingRecord; reason: string; type: 'critical' | 'overdue' | 'info'; onOpen: () => void }) => {
+interface ActionItemProps {
+  record: TrackingRecord;
+  reason: string;
+  type: 'critical' | 'overdue' | 'info';
+  onOpen: () => void;
+}
+
+const ActionItem: React.FC<ActionItemProps> = ({ record, reason, type, onOpen }) => {
   const urgencyColors = {
     critical: 'border-l-4 border-l-purple-500 bg-purple-500/5',
     overdue: 'border-l-4 border-l-red-500 bg-red-500/5',
@@ -72,7 +80,7 @@ const StatCard = ({ label, value, icon: Icon, trend, color = "text-primary-400" 
   </div>
 );
 
-const Dashboard: React.FC<Props> = ({ applications = [], onOpenRecord }) => {
+const Dashboard: React.FC<Props> = ({ applications = [], onOpenRecord, onNewApplication }) => {
   const stats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
     const safeApps = Array.isArray(applications) ? applications : [];
@@ -155,6 +163,19 @@ const Dashboard: React.FC<Props> = ({ applications = [], onOpenRecord }) => {
             {stats.recentReplies.map(rec => (
               <ActionItem key={rec.id} record={rec} type="info" reason="New reply received recently" onOpen={() => onOpenRecord(rec)} />
             ))}
+          </div>
+        ) : stats.total === 0 ? (
+          <div className="bg-surface/50 border border-border border-dashed rounded-xl p-8 text-center flex flex-col items-center">
+            <div className="w-12 h-12 bg-surface-highlight rounded-full flex items-center justify-center text-text-muted mb-3">
+              <Briefcase size={20} />
+            </div>
+            <h3 className="text-sm font-bold text-text-primary">Pipeline Empty</h3>
+            <p className="text-xs text-text-muted mt-1 max-w-xs mb-4">Initialize your tracker by adding your first job application.</p>
+            {onNewApplication && (
+                <Button size="sm" variant="primary" onClick={onNewApplication}>
+                    <Plus size={14} className="mr-2" /> Add First Application
+                </Button>
+            )}
           </div>
         ) : (
           <div className="bg-surface/50 border border-border border-dashed rounded-xl p-8 text-center flex flex-col items-center">

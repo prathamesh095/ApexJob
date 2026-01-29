@@ -5,7 +5,7 @@ import {
   Users, FileText, Copy, ChevronRight, Eye, Settings, PlusCircle,
   UserPlus, History, Upload, LayoutList, LayoutGrid, CheckCircle,
   AlertTriangle, Filter, X, Target, Sparkles, Calendar, Bell, BrainCircuit,
-  Clock, ArrowRight, ChevronLeft, Menu, Command, DownloadCloud, AlertCircle, Loader2, Edit3
+  Clock, ArrowRight, ChevronLeft, Menu, Command, DownloadCloud, AlertCircle, Loader2, Edit3, Inbox
 } from 'lucide-react';
 import { storage } from './services/storage';
 import { auth } from './services/auth';
@@ -14,12 +14,12 @@ import {
   OutreachTemplate, EmailType, Contact, Notification, Reminder
 } from './types';
 import { STATUS_STYLES } from './constants';
-import { Button, Card, Badge, Input, Modal, Label, Textarea, DeleteModal, Select, Checkbox, Pagination, NotificationCenter } from './components/Shared';
+import { Button, Card, Badge, Input, Modal, Label, Textarea, DeleteModal, Select, Checkbox, Pagination, NotificationCenter, EmptyState } from './components/Shared';
 import Dashboard from './components/Dashboard';
 import { LoginForm } from './components/LoginForm';
 import { TrackingForm } from './components/TrackingForm';
 import { RecordDetails } from './components/RecordDetails';
-import { ContactForm } from './components/ContactForm';
+import { ContactForm, ContactDetails } from './components/ContactForm';
 import { generateOutreachDraft, generateInterviewQuestions, InterviewPrep } from './services/ai';
 
 const App: React.FC = () => {
@@ -44,7 +44,12 @@ const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  
+  // CONTACT MODALS
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false); // For Edit/Create
+  const [isContactViewModalOpen, setIsContactViewModalOpen] = useState(false); // For Viewing Details
+  
+  const [viewingContact, setViewingContact] = useState<Contact | null>(null);
 
   // IMPORT STATE
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -170,6 +175,20 @@ const App: React.FC = () => {
       setEditingRecord(null); 
       refreshData(); 
   };
+
+  const handleUpdateRecord = (id: string, data: Partial<TrackingRecord>) => {
+      try {
+          storage.saveRecord({ id, ...data });
+          refreshData();
+          if (viewingRecord && viewingRecord.id === id) {
+              // Update viewing record locally to reflect changes immediately
+              setViewingRecord(prev => prev ? { ...prev, ...data } : null);
+          }
+          showToast("Record updated successfully.");
+      } catch (e: any) {
+          showToast(e.message || "Update failed", "error");
+      }
+  };
   
   const handleSaveContact = (data: Partial<Contact>) => { storage.saveContact(data); setIsContactModalOpen(false); setEditingContact(null); refreshData(); showToast("Contact saved successfully."); };
   const handleDeleteRecord = (id: string) => { const rec = records.find(r => r.id === id); setDeleteConfig({ isOpen: true, type: 'RECORD', id, meta: { name: rec ? `${rec.roleTitle} at ${rec.company}` : 'Record' } }); };
@@ -179,7 +198,7 @@ const App: React.FC = () => {
   const executeDelete = () => { 
     try {
       if (deleteConfig.type === 'RECORD') { storage.deleteRecord(deleteConfig.id!); if (viewingRecord?.id === deleteConfig.id) { setViewingRecord(null); setIsViewModalOpen(false); } }
-      else if (deleteConfig.type === 'CONTACT') storage.deleteContact(deleteConfig.id!);
+      else if (deleteConfig.type === 'CONTACT') { storage.deleteContact(deleteConfig.id!); if (viewingContact?.id === deleteConfig.id) { setViewingContact(null); setIsContactViewModalOpen(false); } }
       else if (deleteConfig.type === 'TEMPLATE') storage.deleteTemplate(deleteConfig.id!);
       
       setDeleteConfig({ isOpen: false, type: null, id: null });
@@ -508,12 +527,29 @@ const App: React.FC = () => {
         {/* WORKSPACE CONTENT */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-6 scroll-smooth custom-scrollbar">
           
-          {activeTab === 'dashboard' && <Dashboard applications={records} onOpenRecord={(rec) => { setViewingRecord(rec); setIsViewModalOpen(true); }} />}
+          {activeTab === 'dashboard' && (
+            <Dashboard 
+                applications={records} 
+                onOpenRecord={(rec) => { setViewingRecord(rec); setIsViewModalOpen(true); }} 
+                onNewApplication={() => { setEditingRecord({}); setIsModalOpen(true); }}
+            />
+          )}
           
           {activeTab === 'applications' && (
              <div className="animate-fade-in space-y-6 flex flex-col h-full">
                 <div className="flex-1">
-                {viewMode === 'grid' ? (
+                {paginatedRecords.length === 0 ? (
+                    <EmptyState 
+                        icon={Briefcase}
+                        title="Pipeline Dormant"
+                        description="No active applications found matching your criteria. Start by tracking a new opportunity."
+                        action={
+                            <Button variant="primary" onClick={() => { setEditingRecord({}); setIsModalOpen(true); }}>
+                                <Plus size={14} className="mr-2" /> Track Application
+                            </Button>
+                        }
+                    />
+                ) : viewMode === 'grid' ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                      {paginatedRecords.map(rec => (
                        <div key={rec.id} onClick={() => { setViewingRecord(rec); setIsViewModalOpen(true); }} className="glass-panel p-5 rounded-xl hover:border-primary-500/30 hover:shadow-lg transition-all cursor-pointer group relative overflow-hidden bg-surface border-border">
@@ -574,24 +610,37 @@ const App: React.FC = () => {
           {activeTab === 'contacts' && (
              <div className="animate-fade-in flex flex-col h-full">
                 <div className="flex-1">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {paginatedContacts.map(contact => (
-                        <div key={contact.id} className="bg-surface border border-border p-5 rounded-xl flex items-start justify-between group hover:border-primary-500/30 transition-all shadow-sm">
-                            <div className="flex items-start gap-4 overflow-hidden">
-                              <div className="w-10 h-10 bg-surface-highlight rounded-lg flex items-center justify-center text-text-muted font-bold border border-border shrink-0">{contact.name[0]}</div>
-                              <div className="min-w-0">
-                                  <h3 className="text-sm font-bold text-text-primary truncate">{contact.name}</h3>
-                                  <p className="text-xs text-primary-400 font-medium mb-1 truncate">{contact.company}</p>
-                                  <p className="text-[10px] text-text-muted font-mono truncate">{contact.email}</p>
-                              </div>
+                  {paginatedContacts.length === 0 ? (
+                      <EmptyState 
+                          icon={Users}
+                          title="Network Empty"
+                          description="Building a professional network is key. Add recruiters, hiring managers, or peers here."
+                          action={
+                              <Button variant="primary" onClick={() => { setEditingContact({}); setIsContactModalOpen(true); }}>
+                                  <UserPlus size={14} className="mr-2" /> Add Contact
+                              </Button>
+                          }
+                      />
+                  ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {paginatedContacts.map(contact => (
+                            <div key={contact.id} onClick={() => { setViewingContact(contact); setIsContactViewModalOpen(true); }} className="bg-surface border border-border p-5 rounded-xl flex items-start justify-between group hover:border-primary-500/30 transition-all shadow-sm cursor-pointer">
+                                <div className="flex items-start gap-4 overflow-hidden">
+                                  <div className="w-10 h-10 bg-surface-highlight rounded-lg flex items-center justify-center text-text-muted font-bold border border-border shrink-0">{contact.name[0]}</div>
+                                  <div className="min-w-0">
+                                      <h3 className="text-sm font-bold text-text-primary truncate">{contact.name}</h3>
+                                      <p className="text-xs text-primary-400 font-medium mb-1 truncate">{contact.company}</p>
+                                      <p className="text-[10px] text-text-muted font-mono truncate">{contact.email}</p>
+                                  </div>
+                                </div>
+                                <div className="flex flex-col gap-1 items-end">
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingContact(contact); setIsContactModalOpen(true); }} className="text-text-muted hover:text-text-primary transition-colors shrink-0 p-1"><Edit3 size={14} /></button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDeleteContact(contact.id); }} className="text-text-muted hover:text-red-400 transition-colors shrink-0 p-1"><Trash2 size={14} /></button>
+                                </div>
                             </div>
-                            <div className="flex flex-col gap-1 items-end">
-                                <button onClick={() => { setEditingContact(contact); setIsContactModalOpen(true); }} className="text-text-muted hover:text-text-primary transition-colors shrink-0 p-1"><Edit3 size={14} /></button>
-                                <button onClick={() => handleDeleteContact(contact.id)} className="text-text-muted hover:text-red-400 transition-colors shrink-0 p-1"><Trash2 size={14} /></button>
-                            </div>
-                        </div>
-                      ))}
-                  </div>
+                          ))}
+                      </div>
+                  )}
                 </div>
                 <Pagination 
                    currentPage={currentPage} 
@@ -622,10 +671,17 @@ const App: React.FC = () => {
                        </div>
                     ))
                 ) : (
-                    <div className="col-span-full flex flex-col items-center justify-center h-64 text-text-muted border border-dashed border-border rounded-xl bg-surface/50">
-                        <FileText size={48} className="mb-4 opacity-20" />
-                        <p className="text-sm font-medium text-text-secondary">No templates found</p>
-                        <p className="text-xs opacity-50">Create a template to streamline your outreach</p>
+                    <div className="col-span-full">
+                        <EmptyState 
+                            icon={FileText}
+                            title="No Templates"
+                            description="Create reusable email or message templates to speed up your outreach."
+                            action={
+                                <Button variant="primary" onClick={() => { setEditingTemplate({}); setIsTemplateModalOpen(true); }}>
+                                    <Plus size={14} className="mr-2" /> Create Template
+                                </Button>
+                            }
+                        />
                     </div>
                 )}
              </div>
@@ -633,23 +689,27 @@ const App: React.FC = () => {
 
           {activeTab === 'audit' && (
              <div className="bg-surface border border-border rounded-xl overflow-hidden animate-fade-in shadow-sm">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-text-secondary whitespace-nowrap">
-                    <thead className="bg-surface-highlight text-text-muted font-medium border-b border-border">
-                        <tr><th className="px-6 py-3 text-xs">Action</th><th className="px-6 py-3 text-xs">Entity</th><th className="px-6 py-3 text-xs">Message</th><th className="px-6 py-3 text-xs text-right">Time</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                        {logs.map(log => (
-                            <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
-                                <td className="px-6 py-3 font-mono text-xs"><span className={log.status === 'SUCCESS' ? 'text-emerald-400' : 'text-red-400'}>{log.action}</span></td>
-                                <td className="px-6 py-3 text-xs text-text-muted">{log.entityType}</td>
-                                <td className="px-6 py-3 text-text-secondary max-w-[200px] truncate">{log.message}</td>
-                                <td className="px-6 py-3 text-right text-[10px] font-mono text-text-muted">{new Date(log.executedAt).toLocaleTimeString()}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                    </table>
-                </div>
+                {logs.length === 0 ? (
+                    <div className="p-12 text-center text-text-muted text-xs">System logs will appear here once actions are taken.</div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-text-secondary whitespace-nowrap">
+                        <thead className="bg-surface-highlight text-text-muted font-medium border-b border-border">
+                            <tr><th className="px-6 py-3 text-xs">Action</th><th className="px-6 py-3 text-xs">Entity</th><th className="px-6 py-3 text-xs">Message</th><th className="px-6 py-3 text-xs text-right">Time</th></tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {logs.map(log => (
+                                <tr key={log.id} className="hover:bg-white/[0.02] transition-colors">
+                                    <td className="px-6 py-3 font-mono text-xs"><span className={log.status === 'SUCCESS' ? 'text-emerald-400' : 'text-red-400'}>{log.action}</span></td>
+                                    <td className="px-6 py-3 text-xs text-text-muted">{log.entityType}</td>
+                                    <td className="px-6 py-3 text-text-secondary max-w-[200px] truncate">{log.message}</td>
+                                    <td className="px-6 py-3 text-right text-[10px] font-mono text-text-muted">{new Date(log.executedAt).toLocaleTimeString()}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        </table>
+                    </div>
+                )}
              </div>
           )}
         </div>
@@ -661,11 +721,34 @@ const App: React.FC = () => {
       </Modal>
 
       <Modal isOpen={isViewModalOpen} onClose={() => { setIsViewModalOpen(false); setViewingRecord(null); }} title="Record Dossier" size="lg">
-        {viewingRecord && <RecordDetails record={viewingRecord} onEdit={(rec) => { setIsViewModalOpen(false); setEditingRecord(rec); setIsModalOpen(true); }} onDelete={handleDeleteRecord} onPrep={handlePrep} />}
+        {viewingRecord && (
+            <RecordDetails 
+                record={viewingRecord} 
+                contacts={contacts} 
+                onEdit={(rec) => { setIsViewModalOpen(false); setEditingRecord(rec); setIsModalOpen(true); }} 
+                onDelete={(id) => { setIsViewModalOpen(false); handleDeleteRecord(id); }} 
+                onPrep={handlePrep}
+                onUpdate={handleUpdateRecord}
+            />
+        )}
       </Modal>
 
+      {/* CONTACT EDIT MODAL */}
       <Modal isOpen={isContactModalOpen} onClose={() => { setIsContactModalOpen(false); setEditingContact(null); }} title="Contact Node">
          <ContactForm initialData={editingContact || {}} onSave={handleSaveContact} onCancel={() => { setIsContactModalOpen(false); setEditingContact(null); }} />
+      </Modal>
+
+      {/* CONTACT VIEW MODAL (New) */}
+      <Modal isOpen={isContactViewModalOpen} onClose={() => { setIsContactViewModalOpen(false); setViewingContact(null); }} title="Contact Dossier" size="lg">
+         {viewingContact && (
+             <ContactDetails 
+                contact={viewingContact}
+                linkedRecords={records.filter(r => r.contactId === viewingContact.id || r.emailAddress === viewingContact.email)}
+                onEdit={() => { setIsContactViewModalOpen(false); setEditingContact(viewingContact); setIsContactModalOpen(true); }}
+                onDelete={() => { setIsContactViewModalOpen(false); handleDeleteContact(viewingContact.id); }}
+                onOpenRecord={(rec) => { setIsContactViewModalOpen(false); setViewingRecord(rec); setIsViewModalOpen(true); }}
+             />
+         )}
       </Modal>
 
       <Modal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} title="Strategy Template">

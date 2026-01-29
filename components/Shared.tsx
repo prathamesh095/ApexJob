@@ -1,7 +1,26 @@
 
 import React, { useCallback, useState } from 'react';
-import { UploadCloud, FileText, X, AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Bell, Trash2, CheckCircle, Info } from 'lucide-react';
+import { UploadCloud, FileText, X, AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Bell, Trash2, CheckCircle, Info, Inbox, Search } from 'lucide-react';
 import { Attachment, Notification } from '../types';
+
+// --- EMPTY STATE COMPONENT ---
+interface EmptyStateProps {
+  icon?: React.ElementType;
+  title: string;
+  description: string;
+  action?: React.ReactNode;
+}
+
+export const EmptyState: React.FC<EmptyStateProps> = ({ icon: Icon = Inbox, title, description, action }) => (
+  <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-border rounded-xl bg-surface/30 h-full min-h-[300px] animate-fade-in">
+    <div className="w-16 h-16 bg-surface-highlight rounded-full flex items-center justify-center text-text-muted mb-4 border border-border">
+      <Icon size={32} strokeWidth={1.5} />
+    </div>
+    <h3 className="text-lg font-bold text-text-primary mb-2">{title}</h3>
+    <p className="text-sm text-text-secondary max-w-sm mb-6 leading-relaxed">{description}</p>
+    {action && <div className="mt-2">{action}</div>}
+  </div>
+);
 
 // --- SYSTEM BUTTON ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -290,7 +309,13 @@ export const NotificationCenter: React.FC<{
              
              <div className="flex-1 overflow-y-auto custom-scrollbar p-2 space-y-1">
                 {notifications.length === 0 ? (
-                   <div className="py-8 text-center text-text-muted text-xs">No notifications</div>
+                   <div className="py-12 text-center flex flex-col items-center justify-center">
+                      <div className="w-10 h-10 bg-surface-highlight rounded-full flex items-center justify-center text-text-muted mb-3 border border-border">
+                         <Bell size={16} />
+                      </div>
+                      <p className="text-xs font-medium text-text-primary">No new notifications</p>
+                      <p className="text-[10px] text-text-muted">You're all caught up!</p>
+                   </div>
                 ) : (
                    notifications.map(n => (
                       <div 
