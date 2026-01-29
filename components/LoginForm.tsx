@@ -129,8 +129,7 @@ export const LoginForm: React.FC<{ onLogin: () => void }> = ({ onLogin }) => {
               </div>
 
               <Button 
-                type="button" // Change to submit
-                onClick={handleSubmit}
+                type="submit"
                 className="w-full h-12 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white shadow-lg shadow-indigo-900/50 border-0 mt-2 group" 
                 size="lg" 
                 isLoading={isLoading}
