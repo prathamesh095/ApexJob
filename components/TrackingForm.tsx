@@ -251,17 +251,17 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
         <div className="flex items-center gap-2">
             {saveStatus === 'saving' && (
                 <span className="flex items-center text-[10px] text-primary-400 font-bold uppercase tracking-wider">
-                    <Loader2 size={10} className="mr-1.5 animate-spin" /> Saving...
+                    <Loader2 size={14} className="mr-1.5 animate-spin" /> Saving...
                 </span>
             )}
             {saveStatus === 'saved' && (
                 <span className="flex items-center text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
-                    <Cloud size={10} className="mr-1.5" /> Draft Saved
+                    <Cloud size={14} className="mr-1.5" /> Draft Saved
                 </span>
             )}
              {saveStatus === 'idle' && hasDraft && (
                 <span className="flex items-center text-[10px] text-amber-500 font-bold uppercase tracking-wider">
-                    <CloudOff size={10} className="mr-1.5" /> Unsynced
+                    <CloudOff size={14} className="mr-1.5" /> Unsynced
                 </span>
             )}
         </div>
@@ -339,7 +339,7 @@ export const TrackingForm: React.FC<Props> = ({ initialData, contacts, onSave, o
                       </div>
                       <div>
                           <Label>Job Posting URL</Label>
-                          <Input placeholder="https://..." value={formData.linkedInOrSource} onChange={e => handleChange('linkedInOrSource', e.target.value)} icon={<LinkIcon size={14} />} error={errors.linkedInOrSource} />
+                          <Input placeholder="https://..." value={formData.linkedInOrSource} onChange={e => handleChange('linkedInOrSource', e.target.value)} icon={<LinkIcon size={16} />} error={errors.linkedInOrSource} />
                       </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

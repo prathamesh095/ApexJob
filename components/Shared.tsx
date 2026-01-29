@@ -108,7 +108,11 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 export const Input: React.FC<InputProps> = ({ error, icon, className = '', ...props }) => (
   <div className="w-full group">
     <div className="relative">
-      {icon && <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-primary-400 transition-colors">{icon}</div>}
+      {icon && (
+        <div className="absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary group-focus-within:text-primary-400 transition-colors pointer-events-none">
+          {icon}
+        </div>
+      )}
       <input 
         {...props} 
         className={`w-full ${icon ? 'pl-10' : 'px-3'} py-2.5 bg-surface-highlight border border-border rounded-lg text-sm text-text-primary placeholder:text-text-muted transition-all duration-200 outline-none
@@ -117,8 +121,8 @@ export const Input: React.FC<InputProps> = ({ error, icon, className = '', ...pr
           ${className}`} 
       />
     </div>
-    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1 animate-fade-in">
-      <AlertCircle size={10} /> {error}
+    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1.5 animate-fade-in">
+      <AlertCircle size={14} /> {error}
     </p>}
   </div>
 );
@@ -137,8 +141,8 @@ export const Textarea: React.FC<TextareaProps> = ({ error, ...props }) => (
         ${error ? 'border-red-500/50' : ''} 
         ${props.className || ''}`} 
     />
-    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1">
-      <AlertCircle size={10} /> {error}
+    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1.5">
+      <AlertCircle size={14} /> {error}
     </p>}
   </div>
 );
@@ -149,7 +153,7 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 }
 
 export const Select: React.FC<SelectProps> = ({ error, ...props }) => (
-  <div className="w-full relative">
+  <div className="w-full relative group">
     <select 
       {...props} 
       className={`w-full px-3 py-2.5 bg-surface-highlight border border-border rounded-lg text-sm text-text-primary appearance-none cursor-pointer transition-all duration-200 outline-none
@@ -157,11 +161,11 @@ export const Select: React.FC<SelectProps> = ({ error, ...props }) => (
         ${error ? 'border-red-500/50' : ''} 
         ${props.className || ''}`} 
     />
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
-      <ChevronDown size={14} />
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-text-secondary group-hover:text-text-primary transition-colors">
+      <ChevronDown size={16} />
     </div>
-    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1">
-      <AlertCircle size={10} /> {error}
+    {error && <p className="mt-1.5 text-[10px] font-bold text-red-400 flex items-center gap-1.5">
+      <AlertCircle size={14} /> {error}
     </p>}
   </div>
 );
@@ -171,7 +175,7 @@ export const Checkbox: React.FC<{ label: string; checked: boolean; onChange: (va
   <label className="flex items-center space-x-3 cursor-pointer group select-none py-1">
     <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all duration-200 
       ${checked ? 'bg-primary-600 border-primary-600' : 'bg-transparent border-text-muted group-hover:border-text-secondary'}`}>
-      {checked && <Check size={10} className="text-white" />}
+      {checked && <Check size={12} className="text-white" strokeWidth={3} />}
     </div>
     <span className={`text-sm transition-colors ${checked ? 'text-text-primary' : 'text-text-secondary group-hover:text-text-primary'}`}>{label}</span>
     <input type="checkbox" className="hidden" checked={checked} onChange={e => onChange(e.target.checked)} />
@@ -495,7 +499,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
       
       {error && (
         <div className="mt-2 text-[10px] font-bold text-red-400 flex items-center gap-1.5 animate-fade-in">
-          <AlertCircle size={10} /> {error}
+          <AlertCircle size={14} /> {error}
         </div>
       )}
     </div>

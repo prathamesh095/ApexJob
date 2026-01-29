@@ -99,12 +99,12 @@ export const ContactForm: React.FC<Props> = ({ initialData = {} as Partial<Conta
         <div className="flex items-center gap-2">
             {saveStatus === 'saving' && (
                 <span className="flex items-center text-[10px] text-primary-400 font-bold uppercase tracking-wider">
-                    <Loader2 size={10} className="mr-1.5 animate-spin" /> Saving...
+                    <Loader2 size={14} className="mr-1.5 animate-spin" /> Saving...
                 </span>
             )}
             {saveStatus === 'saved' && (
                 <span className="flex items-center text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
-                    <Cloud size={10} className="mr-1.5" /> Draft Saved
+                    <Cloud size={14} className="mr-1.5" /> Draft Saved
                 </span>
             )}
         </div>

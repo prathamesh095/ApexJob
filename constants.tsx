@@ -21,15 +21,15 @@ export const NAV_ITEMS = [
 ];
 
 // Unified Status Styles for Dark Mode
-// Using semi-transparent backgrounds with borders for clarity and contrast
+// Using distinct hues and subtle glows to ensure visual clarity on dark backgrounds
 export const STATUS_STYLES: Record<ApplicationStatus, string> = {
   [ApplicationStatus.DRAFT]: 'bg-zinc-500/10 text-zinc-400 border border-zinc-500/20',
-  [ApplicationStatus.SENT]: 'bg-primary-500/10 text-primary-300 border border-primary-500/20',
-  [ApplicationStatus.INTERVIEWING]: 'bg-purple-500/10 text-purple-300 border border-purple-500/20',
-  [ApplicationStatus.OFFER]: 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20',
+  [ApplicationStatus.SENT]: 'bg-sky-500/10 text-sky-300 border border-sky-500/20',
+  [ApplicationStatus.INTERVIEWING]: 'bg-violet-500/10 text-violet-300 border border-violet-500/20 shadow-[0_0_10px_-2px_rgba(139,92,246,0.3)]',
+  [ApplicationStatus.OFFER]: 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-[0_0_10px_-2px_rgba(16,185,129,0.3)]',
   [ApplicationStatus.REJECTED]: 'bg-red-500/10 text-red-300 border border-red-500/20',
-  [ApplicationStatus.WITHDRAWN]: 'bg-orange-500/10 text-orange-300 border border-orange-500/20',
-  [ApplicationStatus.GHOSTED]: 'bg-zinc-800/50 text-zinc-500 border border-zinc-700/30',
+  [ApplicationStatus.WITHDRAWN]: 'bg-amber-500/10 text-amber-300 border border-amber-500/20',
+  [ApplicationStatus.GHOSTED]: 'bg-slate-800/40 text-slate-500 border border-slate-700/30',
 };
 
 export const STATUS_COLORS = STATUS_STYLES; // Alias for backward compatibility if needed locally
