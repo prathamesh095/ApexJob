@@ -58,26 +58,48 @@ export interface TrackingRecord {
   id: string;
   userId: string;
   contactId?: string; // Link to first-class Contact entity
+  
   // Canonical fields
   dateSent: string; 
   name: string;
   emailAddress: string;
   company: string;
   roleTitle: string;
-  linkedInOrSource?: string;
+  linkedInOrSource?: string; // Used for Job URL (Direct) or Profile URL (Network)
   emailType: EmailType;
+  
+  // Extended Metadata (Production Hardening)
+  location?: string;
+  jobId?: string;
+  applicationSource?: string; // e.g. "LinkedIn Jobs", "Company Site"
+  resumeVersion?: string;
+  coverLetterUsed?: boolean;
+  
+  // Outreach Specifics
+  outreachChannel?: string; // e.g. "Email", "LinkedIn DM"
   subjectLineUsed: string;
   personalizationNotes?: string;
   valuePitchSummary: string;
+  
+  // Network/Recruiter Specifics
+  referralRelationship?: string;
+  recruiterType?: string; // "Agency" | "Internal"
+  screeningDate?: string;
+
+  // Outcome Tracking
   replyReceived: boolean;
   replyDate?: string;
   responseSummary?: string;
   status: ApplicationStatus;
+  
+  // Follow Up System
   nextFollowUpDate?: string;
   followUpSent: boolean;
   resultAfterFollowUp?: string;
+  
   notes?: string;
   attachments: Attachment[];
+  
   // Metadata
   createdAt: number;
   updatedAt: number;

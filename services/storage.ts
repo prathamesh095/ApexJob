@@ -148,9 +148,14 @@ class StorageService {
       return updated;
     } else {
       const newRecord: TrackingRecord = {
-        ...record,
+        // Base Defaults
         id: generateId(),
         userId: user.id,
+        createdAt: now,
+        updatedAt: now,
+        // Provided Data Overrides
+        ...record,
+        // Fallbacks for critical fields
         dateSent: record.dateSent || new Date().toISOString().split('T')[0],
         name: record.name || 'Unknown',
         emailAddress: record.emailAddress || '',
@@ -163,8 +168,16 @@ class StorageService {
         status: record.status || ApplicationStatus.SENT,
         followUpSent: record.followUpSent || false,
         attachments: record.attachments || [],
-        createdAt: now,
-        updatedAt: now,
+        // New Field Defaults
+        coverLetterUsed: record.coverLetterUsed || false,
+        location: record.location || '',
+        jobId: record.jobId || '',
+        applicationSource: record.applicationSource || '',
+        resumeVersion: record.resumeVersion || '',
+        outreachChannel: record.outreachChannel || '',
+        referralRelationship: record.referralRelationship || '',
+        recruiterType: record.recruiterType || '',
+        screeningDate: record.screeningDate || ''
       } as TrackingRecord;
 
       this.set(STORAGE_KEYS.RECORDS, [newRecord, ...records]);

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   Plus, Search, Trash2, Zap, Briefcase, LogOut, LayoutDashboard,
@@ -278,16 +279,29 @@ const App: React.FC = () => {
   const handleImport = () => {
     if (!importText.trim()) return;
     try {
-      const lines = importText.split('\n').filter(l => l.trim().length > 0);
+      // Improved CSV Parser
+      const rows = importText.split('\n')
+        .map(l => l.trim())
+        .filter(l => l.length > 0);
       
+      // Auto-detect header row
+      let dataRows = rows;
+      if (rows.length > 0 && (rows[0].toLowerCase().includes('company') || rows[0].toLowerCase().includes('email'))) {
+          dataRows = rows.slice(1);
+      }
+
       if (importMode === 'RECORDS') {
         const newRecords: Partial<TrackingRecord>[] = [];
-        lines.forEach(line => {
-          const parts = line.split(',').map(p => p.trim());
+        dataRows.forEach(line => {
+          // Handle basic CSV splitting, removing quotes
+          const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.trim().replace(/^"|"$/g, ''));
           if (parts.length >= 2) {
             newRecords.push({
-              company: parts[0], roleTitle: parts[1], name: parts[2] || 'Imported Contact',
-              emailAddress: parts[3] || '', status: (parts[4] as ApplicationStatus) || ApplicationStatus.SENT
+              company: parts[0] || 'Unknown', 
+              roleTitle: parts[1] || 'Imported Role', 
+              name: parts[2] || 'Imported Contact',
+              emailAddress: parts[3] || '', 
+              status: Object.values(ApplicationStatus).includes(parts[4] as ApplicationStatus) ? (parts[4] as ApplicationStatus) : ApplicationStatus.SENT
             });
           }
         });
@@ -295,17 +309,20 @@ const App: React.FC = () => {
           storage.saveRecordsBatch(newRecords);
           showToast(`Imported ${newRecords.length} records.`);
         } else {
-          showToast("No valid records found.", 'error');
+          showToast("No valid records found in CSV.", 'error');
         }
       } else {
         // CONTACTS Import
         const newContacts: Partial<Contact>[] = [];
-        lines.forEach(line => {
-           const parts = line.split(',').map(p => p.trim());
+        dataRows.forEach(line => {
+           const parts = line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(p => p.trim().replace(/^"|"$/g, ''));
            if (parts.length >= 2) {
              newContacts.push({
-               name: parts[0], email: parts[1], company: parts[2] || 'Unknown',
-               linkedInOrSource: parts[3] || '', notes: parts[4] || 'Imported via CSV'
+               name: parts[0] || 'Imported Name', 
+               email: parts[1] || '', 
+               company: parts[2] || 'Unknown',
+               linkedInOrSource: parts[3] || '', 
+               notes: parts[4] || 'Imported via CSV'
              });
            }
         });
@@ -313,7 +330,7 @@ const App: React.FC = () => {
           storage.saveContactsBatch(newContacts);
           showToast(`Imported ${newContacts.length} contacts.`);
         } else {
-           showToast("No valid contacts found.", 'error');
+           showToast("No valid contacts found in CSV.", 'error');
         }
       }
 

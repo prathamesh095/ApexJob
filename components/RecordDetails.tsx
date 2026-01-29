@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { TrackingRecord, ApplicationStatus } from '../types';
+import { TrackingRecord, ApplicationStatus, EmailType } from '../types';
 import { Badge, Button } from './Shared';
 import { STATUS_COLORS } from '../constants';
 import { researchCompany } from '../services/ai';
@@ -10,17 +11,21 @@ import {
   Calendar, 
   Link as LinkIcon, 
   FileText, 
-  MessageSquare, 
   Clock, 
   Edit3,
   Globe,
   ExternalLink,
   Sparkles,
   Trash2,
-  ChevronLeft,
   Paperclip,
   Download,
-  BrainCircuit
+  BrainCircuit,
+  MapPin,
+  Hash,
+  Users,
+  Briefcase,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface Props {
@@ -33,11 +38,17 @@ interface Props {
 export const RecordDetails: React.FC<Props> = ({ record, onEdit, onDelete, onPrep }) => {
   const [research, setResearch] = useState<{ content: string, sources: { title: string, uri: string }[] } | null>(null);
   const [isResearching, setIsResearching] = useState(false);
+  const [isResearchExpanded, setIsResearchExpanded] = useState(true);
 
   const handleResearch = async () => {
+    if (research) {
+        setIsResearchExpanded(!isResearchExpanded);
+        return;
+    }
     setIsResearching(true);
     const result = await researchCompany(record.company);
     setResearch(result);
+    setIsResearchExpanded(true);
     setIsResearching(false);
   };
 
@@ -48,7 +59,7 @@ export const RecordDetails: React.FC<Props> = ({ record, onEdit, onDelete, onPre
         <span>{label}</span>
       </div>
       <div className={`text-sm font-bold ${color} break-words leading-tight`}>
-        {value === true ? "YES" : value === false ? "NO" : value || "NOT RECORDED"}
+        {value === true ? "YES" : value === false ? "NO" : value || "—"}
       </div>
     </div>
   );
@@ -83,7 +94,7 @@ export const RecordDetails: React.FC<Props> = ({ record, onEdit, onDelete, onPre
                <BrainCircuit size={16} className="mr-2" /> Interview Prep
              </Button>
              <Button onClick={handleResearch} variant="gradient" isLoading={isResearching} className="whitespace-nowrap">
-               <Sparkles size={16} className="mr-2" /> Strategic Scan
+               <Sparkles size={16} className="mr-2" /> {research ? (isResearchExpanded ? 'Hide Intel' : 'Show Intel') : 'Strategic Scan'}
              </Button>
              
              <div className="h-8 w-px bg-slate-200 mx-1 hidden sm:block"></div>
@@ -98,58 +109,90 @@ export const RecordDetails: React.FC<Props> = ({ record, onEdit, onDelete, onPre
       </div>
 
       {research && (
-        <div className="bg-gradient-to-br from-primary-50 to-white p-6 rounded-3xl border border-primary-100 animate-in fade-in slide-in-from-top-2 shadow-lg shadow-primary-500/5 ring-1 ring-primary-50">
-           <div className="flex items-center space-x-3 mb-5">
-              <div className="bg-primary-600 p-2.5 rounded-xl shadow-lg shadow-primary-200">
-                 <Globe size={20} className="text-white" />
-              </div>
-              <div>
-                <h4 className="text-xs font-black text-primary-900 uppercase tracking-widest">Live Strategic Intelligence</h4>
-                <p className="text-[10px] text-primary-400 font-bold uppercase">AI-Synthesized Briefing</p>
-              </div>
-           </div>
-           <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap mb-6 bg-white/80 p-5 rounded-2xl border border-primary-100/50 shadow-sm">
-              {research.content}
-           </div>
-           {research.sources.length > 0 && (
-             <div className="mt-4 pt-4 border-t border-primary-100/50">
-                <p className="text-[10px] font-bold text-primary-300 uppercase mb-3 tracking-widest">Verified Sources</p>
-                <div className="flex flex-wrap gap-2">
-                   {research.sources.map((source, i) => (
-                     <a 
-                       key={i} 
-                       href={source.uri} 
-                       target="_blank" 
-                       rel="noopener noreferrer"
-                       className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:text-primary-600 hover:border-primary-200 transition-colors shadow-sm group"
-                     >
-                       <span className="truncate max-w-[150px] group-hover:underline">{source.title}</span>
-                       <ExternalLink size={10} />
-                     </a>
-                   ))}
+        <div className="bg-gradient-to-br from-primary-50 to-white rounded-3xl border border-primary-100 animate-in fade-in slide-in-from-top-2 shadow-lg shadow-primary-500/5 ring-1 ring-primary-50 overflow-hidden">
+           <button 
+             onClick={() => setIsResearchExpanded(!isResearchExpanded)} 
+             className="w-full flex items-center justify-between p-6 hover:bg-white/50 transition-colors"
+           >
+             <div className="flex items-center space-x-3">
+                <div className="bg-primary-600 p-2.5 rounded-xl shadow-lg shadow-primary-200">
+                   <Globe size={20} className="text-white" />
                 </div>
+                <div className="text-left">
+                  <h4 className="text-xs font-black text-primary-900 uppercase tracking-widest">Live Strategic Intelligence</h4>
+                  <p className="text-[10px] text-primary-400 font-bold uppercase">AI-Synthesized Briefing</p>
+                </div>
+             </div>
+             <div className="text-primary-400">
+                {isResearchExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+             </div>
+           </button>
+           
+           {isResearchExpanded && (
+             <div className="px-6 pb-6 animate-in slide-in-from-top-2">
+               <div className="text-sm text-slate-700 leading-relaxed font-medium whitespace-pre-wrap mb-6 bg-white/80 p-5 rounded-2xl border border-primary-100/50 shadow-sm">
+                  {research.content}
+               </div>
+               {research.sources.length > 0 && (
+                 <div className="mt-4 pt-4 border-t border-primary-100/50">
+                    <p className="text-[10px] font-bold text-primary-300 uppercase mb-3 tracking-widest">Verified Sources</p>
+                    <div className="flex flex-wrap gap-2">
+                       {research.sources.map((source, i) => (
+                         <a 
+                           key={i} 
+                           href={source.uri} 
+                           target="_blank" 
+                           rel="noopener noreferrer"
+                           className="flex items-center space-x-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:text-primary-600 hover:border-primary-200 transition-colors shadow-sm group"
+                         >
+                           <span className="truncate max-w-[150px] group-hover:underline">{source.title}</span>
+                           <ExternalLink size={10} />
+                         </a>
+                       ))}
+                    </div>
+                 </div>
+               )}
              </div>
            )}
         </div>
       )}
 
+      {/* CORE DATA GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="col-span-full flex items-center gap-3 mb-2">
             <div className="h-px bg-slate-200 flex-1"></div>
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">Core Identifiers</h4>
             <div className="h-px bg-slate-200 flex-1"></div>
         </div>
+
+        {/* 1. Entity & Role */}
         <div className="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm grid grid-cols-1 gap-1">
-            <Field icon={User} label="Primary Contact" value={record.name} />
-            <Field icon={Mail} label="Contact Email" value={record.emailAddress} color="text-primary-600 font-mono" />
+            <Field icon={Building2} label="Company" value={record.company} />
+            <Field icon={Briefcase} label="Role" value={record.roleTitle} />
+            {record.jobId && <Field icon={Hash} label="Job ID" value={record.jobId} />}
         </div>
+
+        {/* 2. Context & Source */}
         <div className="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm grid grid-cols-1 gap-1">
-            <Field icon={LinkIcon} label="Source / URL" value={record.linkedInOrSource} />
-            <Field icon={Calendar} label="Engagement Date" value={new Date(record.dateSent).toLocaleDateString()} />
+            <Field icon={Globe} label="Channel" value={record.emailType} />
+            <Field icon={LinkIcon} label="Source" value={record.applicationSource || record.linkedInOrSource} />
+            {record.location && <Field icon={MapPin} label="Location" value={record.location} />}
         </div>
+
+        {/* 3. Contact Point (Conditional) */}
         <div className="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm grid grid-cols-1 gap-1">
-            <Field icon={FileText} label="Strategy Type" value={record.emailType} />
-            <Field icon={MessageSquare} label="Subject Line" value={record.subjectLineUsed} />
+             {record.emailType === EmailType.DIRECT_APPLICATION ? (
+                <>
+                  <Field icon={FileText} label="Resume Ver" value={record.resumeVersion} />
+                  <Field icon={FileText} label="Cover Letter" value={record.coverLetterUsed} />
+                </>
+             ) : (
+                <>
+                  <Field icon={User} label="Contact" value={record.name} />
+                  <Field icon={Mail} label="Email" value={record.emailAddress} color="text-primary-600 font-mono" />
+                  {record.referralRelationship && <Field icon={Users} label="Relationship" value={record.referralRelationship} />}
+                </>
+             )}
         </div>
       </div>
 
@@ -161,17 +204,22 @@ export const RecordDetails: React.FC<Props> = ({ record, onEdit, onDelete, onPre
           </h4>
           <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl text-sm leading-relaxed text-slate-700 shadow-inner italic font-serif relative">
             <div className="absolute top-4 left-4 text-slate-200 text-6xl font-serif leading-none select-none z-0">"</div>
-            <span className="relative z-10">{record.valuePitchSummary}</span>
+            <span className="relative z-10">{record.valuePitchSummary || "No summary notes recorded."}</span>
           </div>
         </div>
 
         <div className="space-y-4">
             <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center">
               <div className="w-2 h-2 bg-accent-500 rounded-full mr-2 shadow-sm shadow-accent-200"></div>
-              Personalization Strategy
+              Meta Details
             </h4>
-            <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl text-sm leading-relaxed text-slate-700 shadow-inner">
-              {record.personalizationNotes || <span className="text-slate-400 italic">No personalization recorded.</span>}
+            <div className="p-6 bg-slate-50 border border-slate-100 rounded-3xl text-sm leading-relaxed text-slate-700 shadow-inner space-y-2">
+               {record.subjectLineUsed && (
+                 <div><span className="font-bold text-slate-900 block mb-1">Subject Line:</span> {record.subjectLineUsed}</div>
+               )}
+               {record.outreachChannel && (
+                 <div><span className="font-bold text-slate-900 block mb-1">Channel:</span> {record.outreachChannel}</div>
+               )}
             </div>
         </div>
       </div>
@@ -241,15 +289,6 @@ export const RecordDetails: React.FC<Props> = ({ record, onEdit, onDelete, onPre
           </div>
         </div>
       </div>
-
-      {record.notes && (
-        <div className="pt-6">
-          <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Internal Meta Notes</h4>
-          <div className="p-6 bg-[#1e293b] text-slate-300 rounded-3xl font-mono text-xs leading-relaxed shadow-xl shadow-slate-200 border border-slate-700">
-            {record.notes}
-          </div>
-        </div>
-      )}
     </div>
   );
 };
