@@ -215,6 +215,36 @@ const App: React.FC = () => {
   const handleMarkRead = (id: string) => { storage.markNotificationRead(id); refreshData(); };
   const handleClearNotifications = () => { storage.clearNotifications(); refreshData(); };
 
+  // DEEP LINKING HANDLER
+  const handleNotificationClick = (n: Notification) => {
+    // Always mark as read when clicked
+    handleMarkRead(n.id);
+
+    if (n.linkToId) {
+        // Attempt to find in records first
+        const record = records.find(r => r.id === n.linkToId);
+        if (record) {
+            setViewingRecord(record);
+            setIsViewModalOpen(true);
+            // Ensure we are on a relevant tab, or dashboard
+            if (activeTab === 'contacts') setActiveTab('applications');
+            return;
+        }
+
+        // Attempt to find in contacts
+        const contact = contacts.find(c => c.id === n.linkToId);
+        if (contact) {
+            setViewingContact(contact);
+            setIsContactViewModalOpen(true);
+            setActiveTab('contacts');
+            return;
+        }
+
+        // If link ID exists but no item found (deleted?)
+        showToast("Linked item no longer exists.", "error");
+    }
+  };
+
   // --- IMPORT SYSTEM ---
   const parseCSV = (text: string) => {
     const rows: string[][] = [];
@@ -483,7 +513,12 @@ const App: React.FC = () => {
              </div>
              
              {/* NOTIFICATION CENTER INTEGRATION */}
-             <NotificationCenter notifications={notifications} onMarkRead={handleMarkRead} onClearAll={handleClearNotifications} />
+             <NotificationCenter 
+                notifications={notifications} 
+                onMarkRead={handleMarkRead} 
+                onClearAll={handleClearNotifications}
+                onNotificationClick={handleNotificationClick}
+             />
 
              {/* Action Buttons - Responsive Grouping */}
              <div className="flex gap-2">

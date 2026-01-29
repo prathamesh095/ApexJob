@@ -1,6 +1,6 @@
 
 import React, { useCallback, useState } from 'react';
-import { UploadCloud, FileText, X, AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Bell, Trash2, CheckCircle, Info, Inbox, Search } from 'lucide-react';
+import { UploadCloud, FileText, X, AlertCircle, Check, ChevronDown, ChevronLeft, ChevronRight, Bell, Trash2, CheckCircle, Info, Inbox, Search, ArrowUpRight } from 'lucide-react';
 import { Attachment, Notification } from '../types';
 
 // --- EMPTY STATE COMPONENT ---
@@ -274,8 +274,9 @@ export const Pagination: React.FC<{
 export const NotificationCenter: React.FC<{ 
   notifications: Notification[], 
   onMarkRead: (id: string) => void,
-  onClearAll: () => void 
-}> = ({ notifications, onMarkRead, onClearAll }) => {
+  onClearAll: () => void,
+  onNotificationClick?: (n: Notification) => void
+}> = ({ notifications, onMarkRead, onClearAll, onNotificationClick }) => {
   const [isOpen, setIsOpen] = useState(false);
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -320,8 +321,11 @@ export const NotificationCenter: React.FC<{
                    notifications.map(n => (
                       <div 
                          key={n.id} 
-                         onClick={() => onMarkRead(n.id)}
-                         className={`p-3 rounded-lg border transition-all cursor-pointer group ${
+                         onClick={() => {
+                             if (onNotificationClick) onNotificationClick(n);
+                             else onMarkRead(n.id);
+                         }}
+                         className={`p-3 rounded-lg border transition-all cursor-pointer group relative overflow-hidden ${
                             n.read 
                               ? 'bg-transparent border-transparent opacity-60 hover:opacity-100 hover:bg-surface-highlight' 
                               : 'bg-surface-highlight border-border hover:border-border-strong'
@@ -334,6 +338,9 @@ export const NotificationCenter: React.FC<{
                                <p className="text-[11px] text-text-secondary leading-relaxed line-clamp-2">{n.message}</p>
                                <span className="text-[10px] text-text-muted font-mono mt-2 block">{new Date(n.createdAt).toLocaleTimeString()}</span>
                             </div>
+                            {n.linkToId && (
+                                <ArrowUpRight size={14} className="text-primary-400 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            )}
                          </div>
                       </div>
                    ))

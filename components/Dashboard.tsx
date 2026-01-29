@@ -49,7 +49,10 @@ const ActionItem: React.FC<ActionItemProps> = ({ record, reason, type, onOpen })
   };
 
   return (
-    <div className={`p-4 rounded-lg border border-border flex items-center justify-between group hover:border-border-strong transition-all ${urgencyColors[type]}`}>
+    <div 
+        onClick={onOpen}
+        className={`p-4 rounded-lg border border-border flex items-center justify-between group hover:border-border-strong transition-all cursor-pointer ${urgencyColors[type]}`}
+    >
       <div className="flex items-start gap-4">
         <div className="mt-1">{icons[type]}</div>
         <div>
@@ -60,7 +63,7 @@ const ActionItem: React.FC<ActionItemProps> = ({ record, reason, type, onOpen })
           <p className="text-xs text-text-secondary">{reason}</p>
         </div>
       </div>
-      <Button size="xs" variant="secondary" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={onOpen}>
+      <Button size="xs" variant="secondary" className="opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => { e.stopPropagation(); onOpen(); }}>
         Open
       </Button>
     </div>
